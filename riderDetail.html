@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/delivery.css">
+    <link rel="stylesheet" href="css/jquery.toast.min.css">
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/jquery.min.js"></script>
+    <script src="js/config.js"></script>
+    <script type="text/javascript" src="js/commonBase.js"></script>
+    <script src="js/vue.js"></script>
+    <script src="js/jquery.toast.min.js"></script>
+    <script src="js/common.js"></script>
+    <title>騎手訂單詳情</title>
+</head>
+<body>
+<div class="riderOrder-wrap">
+    <div class="main-title primary_title">
+        <a href="javascript:history.go(-1)"><i><img src="images/back-btn.png" width="14px" alt=""/></i>返回</a>
+        <span>騎手{{riderName}}的訂單詳情</span>
+    </div>
+    <div class="search_box">
+        <div class="select_area">
+            <select class="form-control orderStatus" id="riderStatus" v-model="orderStatus" @change="riderStatus">
+                <!--<option style="display: none;"> &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;訂單完成情況</option>-->
+                <option value="0">&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;全部</option>
+                <option value="1"> &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;準時達</option>
+                <option value="2"> &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;超時</option>
+            </select>
+        </div>
+    </div>
+    <div class="riderOrder-con primary-table-border_bottom">
+        <table class="table table-responsive">
+            <thead>
+            <tr>
+                <th>序號</th>
+                <th>騎手訂單號</th>
+                <th>騎手</th>
+                <th>狀態</th>
+                <th>訂單金額</th>
+                <th>商家名稱</th>
+                <th>送貨地址</th>
+                <th>備註</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody class="tbody">
+            <tr v-for="(item,index) in dataList">
+                <td>{{index}}</td>
+                <td>{{item.orderId}}</td>
+                <td>{{item.riderName}}（{{item.phone}}）</td>
+                <td>
+                    <span v-show="item.state == 1">派單未確認</span>
+                    <span v-show="item.state == 2">騎手已接單</span>
+                    <span v-show="item.state == 6">騎手上報到店</span>
+                    <span v-show="item.state == 3">取貨離店</span>
+                    <span v-show="item.state == 7">已到達配送地址</span>
+                    <span v-show="item.state == 4">已送達</span>
+                    <span class="sub_title offline" v-show="item.orderTimeOut>0">超時{{item.orderTimeOut}}分鐘</span>
+                    <span class="sub_title" v-show="item.orderTimeLeft>0">剩餘{{item.orderTimeLeft}}分鐘</span>
+                </td>
+                <td>{{item.totalAmount}}</td>
+                <td>{{item.storeName}}<span style="margin-left: 10px">#{{item.sequenceNo}}</span>
+                <span class="sub_title">{{item.storeAddress}}</span>
+                </td>
+                <td>{{item.address}}{{item.addressDetail}}</td>
+                <td>{{item.remark}}</td>
+                <td class="primary-a"> <span @click="mark(item)">標記異常</span> | <span @click="showAccountDailog(item)">处理</span></td>
+            </tr>
+            </tbody>
+        </table>
+        <div class="noData-msg" :style="{ display: dataList.length == 0 ? 'block' : 'none' }">
+            暫無數據
+        </div>
+    </div>
+    <div id="dialogs" class="riderOrderNo-dialogs">
+        <!--BEGIN dialog1-->
+        <div class="js_dialog" id="iosDialog1" style="opacity: 1;">
+            <div class="weui-mask" @click="hideDialogs"></div>
+            <div class="weui-dialog">
+               <div class="mark-title">標記異常</div>
+                <div class="weui-dialog-con">
+                   <p class="list" v-for="item in riderReasonData" @click="chooseMark(item)">{{item.reasion}}</p>
+                </div>
+                <div class="edit-mark">
+                    <span v-show="showEdit"><img class="edit-icon" src="images/edit-icon.png" alt=""></span><input  placeholder="點擊添加其他理由，回車保存並選中理由" class="mark-content" v-model="adminMark" @keydown="EnterPress"></input>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--弹窗开始-->
+    <div class="dialog-container">
+        <div class="mask" @click="hideAccountDailog"></div>
+        <div class="dialog-con">
+            <div class="dialog-con_title">改變結算方式</div>
+            <div class="dialog-con_hd">
+                <span>取：{{riderOrderItem.storeName}}：{{riderOrderItem.storeAddress}}</span>
+                <span>寄：{{riderOrderItem.userName}}&nbsp;&nbsp;{{riderOrderItem.address}}{{riderOrderItem.addressDetail}}</span>
+                <div class="item-list">{{riderOrderItem.riderName}}配送，
+                    <span v-show="riderOrderItem.orderTimeOut>0">超時<em class="offline">{{riderOrderItem.orderTimeOut}}</em>分鐘</span>
+                    <span v-show="riderOrderItem.orderTimeLeft>0">剩餘<em class="offline">{{riderOrderItem.orderTimeLeft}}</em>分鐘</span>
+                </div>
+            </div>
+            <div class="dialog-con_bd">
+                確定將此專送訂單的結算方式改為“自送方式”？
+            </div>
+            <div class="dialog-con_footer">
+                <div class="footer_btn" @click="hideAccountDailog()">取消</div>
+                <div class="footer_btn" @click="changeAccount(riderOrderItem.riderOrderId)">確定</div>
+            </div>
+        </div>
+    </div>
+    <!--弹窗结束-->
+</div>
+<script>
+    function getQueryString(name) {
+        var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
+        var r = location.search.substr(1).match(reg);
+        if (r != null) return unescape(decodeURI(r[2])); return null;
+    }
+    var app = new Vue({
+        el:".riderOrder-wrap",
+            data:{
+            dataList:'',
+            orderStatus:0,
+            riderName:'',
+            riderReasonData:'',
+            riderOrderList:{},
+            adminMark:'',
+            showEdit:true,
+            riderOrderItem:{}
+        },
+        created:function () {
+            this.searchRiderOrder();
+        },
+        methods:{
+            EnterPress:function () {
+                if(event.keyCode == 13){
+                  this.addMark();
+                }
+        },
+            hideDialogs:function () {
+                $("#dialogs").hide();
+            },
+            mark:function (item) {
+                _self = this;
+                _self.riderOrderList = item;
+              $("#dialogs").show();
+                this.getAllExceptionLib();
+            },
+            showAccountDailog:function (item) {
+                var _self = this;
+                _self.riderOrderItem = item;
+                $(".dialog-container").show();
+            },
+            hideAccountDailog:function () {
+                $(".dialog-container").hide();
+            },
+            changeAccount:function (riderOrderId) {
+                $(".dialog-container").hide();
+                var param  = {
+                    riderOrderId:riderOrderId
+                };
+                CommonBase.request(getOptionAccountType_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        com.toast("操作成功");
+                    }
+                });
+            },
+            //騎手端異常標註
+            getAllExceptionLib:function () {
+                var _self = this;
+                var  riderId = getQueryString("riderId");
+                var param  = {
+                };
+                CommonBase.request(getAllExceptionLib_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.riderReasonData = jsonstr.detailMsg;
+                    }
+                });
+            },
+            chooseMark:function (item) {
+                var  riderId = getQueryString("riderId");
+                var _self = this;
+                var param  = {
+                    orderId:_self.riderOrderList.orderId,
+                    riderId:riderId,
+                    riderReason:item.reasion
+                };
+                CommonBase.request(markException_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        $("#dialogs").hide();
+                        _self.refreshData();
+                        com.toast("標註異常成功");
+                    }
+                });
+            },
+            addMark:function () {
+                var riderReason = document.querySelector(".mark-content").value;
+                var  riderId = getQueryString("riderId");
+                var _self = this;
+                var param  = {
+                    orderId:_self.riderOrderList.orderId,
+                    riderId:riderId,
+                    riderReason:riderReason
+                };
+                CommonBase.request(markException_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        $("#dialogs").hide();
+                        _self.refreshData();
+                        com.toast("標註異常成功");
+                    }
+                });
+            },
+            riderStatus:function (){//骑手状态
+                _self = this;
+                this.searchRiderOrder();
+                var riderStatus = document.querySelector("#riderStatus");
+                var val = riderStatus.options[riderStatus.selectedIndex].value;
+                if(val){
+                    this.searchRiderOrder();
+                }
+            },
+            searchRiderOrder:function () {
+                var _self = this;
+                var  riderId = getQueryString("riderId");
+                var  beginTime = getQueryString("beginTime");
+                var  endTime = getQueryString("endTime");
+                var param  = {
+                    riderId:riderId,
+                    beginDate:beginTime,
+                    endDate:endTime,
+                    state:_self.orderStatus
+                };
+                CommonBase.request(searchRiderOrder_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.dataList = jsonstr.detailMsg.list;
+                        _self.totalPages = jsonstr.detailMsg.totalPages;
+                        _self.pageNow = jsonstr.detailMsg.pageNow;
+                        _self.riderName = jsonstr.detailMsg.list[0].riderName;
+                        jsonstr.detailMsg.list.forEach(function (item) {
+                        })
+                    }
+                });
+            },
+            refreshData:function () {
+                this.searchRiderOrder();
+            },
+        }
+    })
+</script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <style type="text/css">
+        #l-map{height:780px;width:100%;}
+    </style>
+    <script type="text/javascript" src="http://api.map.baidu.com/api?v=2.0&ak=5YOp1myIXzGZiutzzavME5ww"></script>
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/delivery.css">
+    <script src="js/jquery.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/vue.js"></script>
+    <script type="text/javascript" src="js/commonBase.js"></script>
+    <title>訂單詳情</title>
+</head>
+<style>
+    .BMapLabel{
+        background-color: rgb(255, 255, 255);
+        border: 1px solid rgb(255, 255, 255) !important;
+        padding: 2px !important;
+        z-index: 9999 !important;
+    }
+</style>
+<body>
+<div class="main">
+    <div id="l-map"></div>
+    <div class="refreData_box">
+        <a href="#" class="btn btn-default" onclick="refreshData()">刷新</a>
+    </div>
+</div>
+</body>
+</html>
+<script type="text/javascript">
+    function refreshData(){
+        window.location.reload();//页面刷新
+    }
+    function getQueryString(name) {
+        var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
+        var r = location.search.substr(1).match(reg);
+        if (r != null) return unescape(decodeURI(r[2]));
+        return null;
+    }
+    var app = new Vue({
+        el:".main",
+        data:{
+
+        },
+        created:function () {
+            this.getData();
+        },
+        mounted:function () {
+
+        },
+        methods:{
+            getData:function() {
+                var _self = this;
+                var param  = {
+                    riderId:(getQueryString("riderId"))
+                };
+                CommonBase.request(getRiderLocation_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.dataList = jsonstr.detailMsg;
+                        // 百度地图API功能
+                        var map = new BMap.Map("l-map");
+                        var point = new BMap.Point(jsonstr.detailMsg.lon,jsonstr.detailMsg.lat);//骑手坐标 經度,緯度
+                        map.centerAndZoom(point, 15);
+                        var marker = new BMap.Marker(point);  // 创建标注
+                        map.addOverlay(marker);
+                        map.enableScrollWheelZoom(true);
+                    }
+                });
+            }
+        }
+    });
+</script>

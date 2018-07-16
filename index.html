@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/delivery.css">
+    <script src="js/jquery.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/style.js"></script>
+    <script type="text/javascript" src="js/config.js"></script>
+    <script type="text/javascript" src="js/vue.js"></script>
+    <script type="text/javascript" src="js/commonBase.js"></script>
+    <link rel="stylesheet" href="lib/theme-chalk/index.css">
+    <script type="text/javascript" src="lib/index.js"></script>
+    <title>澳覓專送商戶版</title>
+</head>
+<body style="background: #e5e5e5;">
+<div class="main">
+    <div id="dialogs1">
+        <!--BEGIN dialog1-->
+        <div class="js_dialog" id="iosDialog1">
+            <div class="weui-mask" @click="hide"></div>
+            <div class="weui-dialog">
+                <div class="weui-dialog__hd"><strong class="weui-dialog__title"></strong></div>
+                <div class="weui-dialog__bd">确定要退出？</div>
+                <div class="weui-dialog__ft riderOrderNo__ft">
+                    <a href="javascript:;" class="weui-dialog__btn weui-dialog__btn_default" @click="hide">取消</a>
+                    <a href="javascript:;" class="weui-dialog__btn weui-dialog__btn_primary primary-sure" @click="loginOut">確定</a>
+                </div>
+            </div>
+        </div>
+        <!--END dialog1-->
+    </div>
+    <div class="header">
+        <div class="logo">
+            <img src="images/logo.jpg" alt=""/>
+        </div>
+        <div class="user-name user_box">
+            <div>共<span>{{getBarData.totalRiderCount}}</span>個騎手，<span>{{getBarData.totalOrderCount}}</span>單&nbsp;&nbsp;|&nbsp;&nbsp;歡迎，<span>{{getBarData.dispatcherName}}</span>&nbsp;&nbsp;|</div>
+            <a href="#"  @click="show" class="out">退出</a>
+        </div>
+    </div>
+    <div class="content">
+        <div class="content-menu">
+            <div class="left">
+                <ul class="menu-list">
+                    <li><a href="distribute.html" class="active" target="right"><span>●</span>調度</a></li>
+                    <li><a href="horseman.html"  target="right"><span>●</span>騎手管理</a></li>
+                    <li><a href="totalData.html"  target="right"><span>●</span>數據統計</a>
+                    <!--<li><a href="comment.html"  target="right"><span>●</span>評價管理</a>-->
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="content-main">
+            <iframe name="right" id="right" src="distribute.html" scrolling="auto" frameBorder="0" width="100%" height="100%" style="overflow:auto;" onload="iFrameHeight()"></iframe>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    function iFrameHeight() {
+        var ifm= document.querySelector("#right");
+        ifm.height=720;
+    }
+    var app = new Vue({
+        el:".main",
+        data:{
+            getBarData:'',
+        },
+        mounted:function () {
+            setInterval(this.getData,60000);//1分鐘页面刷新一次
+        },
+        created:function () {
+            this.getData();
+        },
+        methods: {
+            getData:function () {
+                var _self = this;
+                var param  = {
+                };
+                CommonBase.request(getBarInfo_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.getBarData = jsonstr.detailMsg;
+                    }
+                });
+            },
+            show:function () {
+                var dialogs1 = document.querySelector("#dialogs1").style.display="block";
+            },
+            hide:function () {
+                var dialogs1 = document.querySelector("#dialogs1").style.display="none";
+            },
+            loginOut:function () {
+                var param  = {
+                };
+                CommonBase.request(dispatcherLoginOut_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        window.location.href = "login.html";
+                    }
+
+                });
+            }
+        }
+    })
+</script>
+</body>
+</html>

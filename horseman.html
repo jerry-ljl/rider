@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/delivery.css">
+    <script src="js/jquery.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/vue.js"></script>
+    <script src="js/jquery.toast.min.js"></script>
+    <script src="js/common.js"></script>
+    <script type="text/javascript" src="js/commonBase.js"></script>
+    <link rel="stylesheet" href="css/jquery.toast.min.css">
+    <title>騎手管理</title>
+</head>
+<body>
+<div class="horseman">
+    <div class="main-title">
+        騎手管理
+    </div>
+    <div class="search_box">
+        <a href="horsemanAdd.html" class="btn btn-default btn_primary">+添加</a>
+    </div>
+    <div class="horseman_content">
+        <table class="table table-bordered table-responsive">
+            <thead>
+            <tr class="takeout-head">
+                <th>序號</th>
+                <th>騎手姓名</th>
+                <th>電話</th>
+                <th>騎手狀態</th>
+                <th>區域</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr v-for="(item,index) in dataList">
+                <td>{{item.riderId}}</td>
+                <td>{{item.riderName}}</td>
+                <td>{{item.phone}}</td>
+                <td><span v-show="item.riderUserState == 1">正常</span><span v-show="item.riderUserState == 0">禁用</span></td>
+                <td class="selectArea">
+                    <select id="stationId" @change="show(item)" v-model="item.stationId">
+                        <option :value="area.id" v-for="area in getAllRiderStationData">{{area.name}}</option>
+                    </select>
+                </td>
+                <td class="operation">
+                    <a href="#" @click="horsemanEdit(item)" class="a_primary" disabled>編輯</a>
+                    <span class="mark_interval">|</span>
+                    <a href="#" class="a_primary" v-show="item.riderUserState == 1" @click="forbidden(item)">禁用</a>
+                    <a href="#" class="a_primary" v-show="item.riderUserState == 0" @click="recover(item)">恢復</a>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+        <!--彈層-->
+        <div id="dialogs">
+            <!--BEGIN dialog1-->
+            <div class="js_dialog edit-dialog" id="iosDialog1" style="opacity: 1;">
+                <div class="weui-mask"></div>
+                <div class="weui-dialog">
+                    <div class="weui-dialog__hd"><strong class="weui-dialog__title"></strong></div>
+                    <div class="weui-dialog__bd dialog-title">确定要修改<span id="selectOpt"></span>？</div>
+                    <div class="weui-dialog__ft riderOrderNo__ft">
+                        <a href="javascript:;" class="weui-dialog__btn weui-dialog__btn_default" @click="hide">取消</a>
+                        <a href="javascript:;" class="weui-dialog__btn weui-dialog__btn_primary" @click="selectArea">确定</a>
+                    </div>
+                </div>
+            </div>
+            <!--END dialog1-->
+        </div>
+    </div>
+</div>
+<script>
+    function getQueryString(name) {
+        var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
+        var matchString = window.location.href.split('?')[1];
+        var r = matchString && matchString.match(reg);
+        if (r != null) return decodeURIComponent(r[2]); return null;
+    }
+    var app = new Vue({
+        el:".horseman",
+        data:{
+            dataList:"",
+            isOnline:true,
+            getAllRiderStationData:"",//获取区域列表
+            currRiderAreaItem:{}
+        },
+        created:function () {
+            this.getData();
+        },
+        mounted:function () {
+            this.getData();
+            this.getAllRiderStation();
+        },
+        methods: {
+            getAllRiderStation:function () { //获取区域列表
+                var _self = this;
+                var param  = {
+                };
+                CommonBase.request(getAllRiderStation_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.getAllRiderStationData =jsonstr.detailMsg;
+                    }
+                });
+            },
+            horsemanEdit:function(item){
+                var riderUserState = item.riderUserState;
+                if(riderUserState==0){
+                    com.toast("該騎手已經被禁用，不能編輯！")
+                    return false;
+                }
+                window.location.href="horsemanEdit.html?riderId="+item.riderId
+            },
+            getData:function () {
+
+                var _self = this;
+                var param  = {
+
+                };
+                CommonBase.request(obtainAllRiderList_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.dataList = jsonstr.detailMsg;
+                        for(var i=0;i<_self.dataList.length;i++){
+                            var riderUserState = _self.dataList[i].riderUserState;
+                        }
+                    }
+                });
+
+            },
+            recover:function (item) { //賬號恢復
+                var _self = this;
+                var param  = {
+                    riderId:item.riderId
+                };
+                CommonBase.request(revertRider_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        window.location.reload();
+                    }
+                });
+            },
+            forbidden:function (item) { //禁用骑手
+                var _self = this;
+                var param  = {
+                    riderId:item.riderId
+                };
+                CommonBase.request(deleteRider_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        window.location.reload();
+                    }
+                });
+            },
+            show:function (item) {
+                this.currRiderAreaItem = item
+                var dialogs = document.querySelector("#dialogs").style.display="block";
+//                if(item.stationId==1){
+//                    var selectOpt = document.querySelector("#selectOpt").innerHTML="澳門區"
+//                }
+//                if(item.stationId==2){
+//                    var selectOpt = document.querySelector("#selectOpt").innerHTML="氹仔"
+//                }else {
+//                    var selectOpt = document.querySelector("#selectOpt").innerHTML="測試"
+//                }
+            },
+            hide:function () {
+                var dialogs = document.querySelector("#dialogs").style.display="none";
+                window.location.href="horseman.html"
+            },
+            selectArea:function () {
+                var _self = this;
+                var param  = {
+                    stationId:this.currRiderAreaItem.stationId,
+                    riderId:this.currRiderAreaItem.riderId
+                };
+                CommonBase.request(updateStationId_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        window.location.href="horseman.html"
+                    }
+                });
+
+            }
+        }
+    });
+</script>
+</body>
+</html>

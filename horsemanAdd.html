@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/delivery.css">
+    <link rel="stylesheet" href="css/jquery.toast.min.css">
+    <script src="js/jquery.min.js"></script>
+    <script src="js/vue.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/jquery.toast.min.js"></script>
+    <script src="js/common.js"></script>
+    <script type="text/javascript" src="js/commonBase.js"></script>
+
+    <title>騎手添加</title>
+</head>
+<body>
+<div class="horseman">
+    <div class="main-title primary_title">
+        <a href="javascript:history.go(-1)"><i><img src="images/back-btn.png" width="14px" alt=""/></i>返回</a>
+        <span>騎手編輯</span>
+    </div>
+    <div class="horsemanEdit_content">
+        <section class="label_list">
+            <span class="label_name">所在區域</span>
+            <label for="">
+                <select class="selectArea form-control" id="stationId" v-model="stationId">
+                    <option :value="item.id" v-for="item in getAllRiderStationData">{{item.name}}</option>
+                </select>
+            </label>
+        </section>
+        <section class="label_list">
+            <span class="label_name">騎手姓名</span>
+            <input type="text" class="form-control" id="name" placeholder="請輸入騎手姓名"/>
+        </section>
+        <section class="label_list">
+            <span class="label_name">騎手電話</span>
+            <input type="text" class="form-control" id="phone" maxlength="8" onkeyup="this.value=this.value.replace(/[^0-9-]+/,'');" placeholder="請輸入騎手電話"/>
+        </section>
+        <section class="label_list">
+            <span class="label_name">騎手手機udid</span>
+            <input type="text" class="form-control" id="idNo" placeholder="騎手手機udid" />
+            <div class="tip_msg"><span>請輸入騎手手機鏈接itunes</span><span>可查詢到iphone手機的udid</span></div>
+        </section>
+        <section class="label_list">
+            <span class="label_name">密碼</span>
+            <input type="password" id="password" @change="checkedPwd" class="form-control" placeholder="請輸入騎手密碼"/>
+        </section>
+        <section class="label_list">
+            <span class="label_name">確認密碼</span>
+            <input type="password" id="password1" @change="checkedPwd" class="form-control" placeholder="請再次輸入騎手密碼"/>
+        </section>
+        <div class="submit_box">
+            <a href="#" class="btn btn-default btn_primary" @click="UpdateRider">保存</a>
+        </div>
+    </div>
+    <div id="dialogs1">
+        <!--BEGIN dialog1-->
+        <div class="js_dialog primary-dialog">
+            <div class="weui-mask" @click="hideDialogs1"></div>
+            <div class="weui-dialog">
+                <div class="weui-dialog__bd">騎手姓名不能為空</div>
+                <div class="weui-dialog__ft">
+                    <a href="javascript:;" class="weui-dialog__btn weui-dialog__btn_primary primary-sure" @click="hideDialogs1">知道</a>
+                </div>
+            </div>
+        </div>
+        <!--END dialog1-->
+    </div>
+    <div id="dialogs2">
+        <!--BEGIN dialog1-->
+        <div class="js_dialog primary-dialog" id="iosDialog2">
+            <div class="weui-mask" @click="hideDialogs2"></div>
+            <div class="weui-dialog">
+                <div class="weui-dialog__bd">騎手號碼不能爲空</div>
+                <div class="weui-dialog__ft">
+                    <a href="javascript:;" class="weui-dialog__btn weui-dialog__btn_primary primary-sure" @click="hideDialogs2">知道</a>
+                </div>
+            </div>
+        </div>
+        <!--END dialog1-->
+    </div>
+    <div id="dialogs3">
+        <!--BEGIN dialog1-->
+        <div class="js_dialog primary-dialog" id="iosDialog3">
+            <div class="weui-mask" @click="hideDialogs3"></div>
+            <div class="weui-dialog">
+                <div class="weui-dialog__bd">密碼不能爲空</div>
+                <div class="weui-dialog__ft">
+                    <a href="javascript:;" class="weui-dialog__btn weui-dialog__btn_primary primary-sure" @click="hideDialogs3">知道</a>
+                </div>
+            </div>
+        </div>
+        <!--END dialog1-->
+    </div>
+    <div id="dialogs4">
+        <!--BEGIN dialog1-->
+        <div class="js_dialog primary-dialog" id="iosDialog4">
+            <div class="weui-mask" @click="hideDialogs4"></div>
+            <div class="weui-dialog">
+                <div class="weui-dialog__bd">兩次密碼不相同</div>
+                <div class="weui-dialog__ft">
+                    <a href="javascript:;" class="weui-dialog__btn weui-dialog__btn_primary primary-sure" @click="hideDialogs4">知道</a>
+                </div>
+            </div>
+        </div>
+        <!--END dialog1-->
+    </div>
+    <div id="dialogs5">
+        <!--BEGIN dialog1-->
+        <div class="js_dialog primary-dialog" id="iosDialog5">
+            <div class="weui-mask" @click="hideDialogs5"></div>
+            <div class="weui-dialog">
+                <div class="weui-dialog__bd">騎手號碼不能少於8位數</div>
+                <div class="weui-dialog__ft">
+                    <a href="javascript:;" class="weui-dialog__btn weui-dialog__btn_primary primary-sure" @click="hideDialogs5">知道</a>
+                </div>
+            </div>
+        </div>
+        <!--END dialog1-->
+    </div>
+</div>
+<script>
+    var app = new Vue({
+        el:".horseman",
+        data:{
+            getAllRiderStationData:"",//获取区域列表
+            stationId:1,//區域id
+        },
+        created:function () {
+            this.getAllRiderStation();
+        },
+        methods:{
+            getAllRiderStation:function () { //获取区域列表
+                var _self = this;
+                var param  = {
+                };
+                CommonBase.request(getAllRiderStation_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.getAllRiderStationData =jsonstr.detailMsg;
+                        _self.stationId = jsonstr.detailMsg[0].id;
+                    }
+                });
+            },
+            hideDialogs1:function () {
+                var dialogs1 = document.querySelector("#dialogs1").style.display="none";
+            },
+            hideDialogs2:function () {
+                var dialogs1 = document.querySelector("#dialogs2").style.display="none";
+            },
+            hideDialogs3:function () {
+                var dialogs1 = document.querySelector("#dialogs3").style.display="none";
+            },
+            hideDialogs4:function () {
+                var dialogs1 = document.querySelector("#dialogs4").style.display="none";
+            },
+            hideDialogs5:function () {
+                var dialogs1 = document.querySelector("#dialogs5").style.display="none";
+            },
+            checkedPwd:function () {
+                var password=document.querySelector("#password").value;
+                var password1=document.querySelector("#password1").value;
+                if(password !== password1&&password !=""&&password1 !=""){
+                    $("#dialogs1").show();
+                    return false
+                }
+            },
+            UpdateRider:function () {
+                var _self = this;
+                var stationId = document.querySelector("#stationId");
+                var val = stationId.options[stationId.selectedIndex].value;
+                var name=document.querySelector("#name").value;
+                var phone=document.querySelector("#phone").value;
+                var idNo=document.querySelector("#idNo").value;
+                var password=document.querySelector("#password").value;
+                var password1=document.querySelector("#password1").value;
+
+                if(name==null||name ==""){
+                    $("#dialogs1").show();
+                    return false;
+                }
+                if(phone.length ==null ||phone ==""){
+                    $("#dialogs2").show();
+                    return false;
+                }
+                if(phone.length<8){
+                    $("#dialogs5").show();
+                    return false;
+                }
+                if(password==null||password ==""){
+                    $("#dialogs3").show();
+                    return false;
+                }
+                if(password1 !=password){
+                    $("#dialogs4").show();
+                    return false;
+                }
+                var param  = {
+                    stationId:val,
+                    name:name,
+                    phone:phone,
+                    idNo:idNo,
+                    password:password
+                };
+                //处理异常情况
+                var careBusinessException = function (jsonstr) {
+                    if(jsonstr.resultCode =="400"){
+                        com.toast(jsonstr.businessMsg.businessNote);
+                    }
+                }
+                CommonBase.request(addAndUpateRiderV2_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        com.toast("添加成功");
+                        setInterval(function () {
+                            window.location.href="horseman.html"
+                        },1000)
+                    }
+                },null,null,careBusinessException);
+
+            }
+        }
+    });
+
+</script>
+</body>
+</html>

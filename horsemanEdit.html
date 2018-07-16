@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/delivery.css">
+    <script src="js/jquery.min.js"></script>
+    <script src="js/vue.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/jquery.toast.min.js"></script>
+    <script src="js/common.js"></script>
+    <script type="text/javascript" src="js/commonBase.js"></script>
+    <link rel="stylesheet" href="css/jquery.toast.min.css">
+    <title>騎手編輯</title>
+</head>
+<body>
+<div class="horseman">
+    <div class="main-title primary_title">
+        <a href="javascript:history.go(-1)"><i><img src="images/back-btn.png" width="14px" alt=""/></i>返回</a>
+        <span>騎手編輯</span>
+    </div>
+    <div class="horsemanEdit_content">
+        <section class="label_list">
+            <span class="label_name">所在區域</span>
+            <label for="">
+                <select class="selectArea form-control" id="stationId" v-model="stationId">
+                    <option :value="item.id" v-for="item in getAllRiderStationData">{{item.name}}</option>
+                </select>
+            </label>
+        </section>
+        <section class="label_list">
+            <span class="label_name">騎手姓名</span>
+            <input type="text" class="form-control" id="name" placeholder="請輸入騎手姓名" v-model="riderName"/>
+        </section>
+        <section class="label_list">
+            <span class="label_name">騎手電話</span>
+            <input type="phone" class="form-control" id="phone" maxlength="8" onkeyup="this.value=this.value.replace(/[^0-9-]+/,'');" placeholder="請輸入騎手電話" v-model="phone"/>
+        </section>
+        <!--<section class="label_list">-->
+            <!--<span class="label_name">騎手手機udid</span>-->
+            <!--<input type="text" class="form-control" id="idNo" placeholder="騎手手機udid" />-->
+            <!--<div class="tip_msg"><span>請輸入騎手手機鏈接itunes</span><span>可查詢到iphone手機的udid</span></div>-->
+        <!--</section>-->
+        <section class="label_list">
+            <span class="label_name">密碼</span>
+            <input type="password" class="form-control" id="password" value="123456" disabled/>
+            <a href="#" class="change_password" @click="goPwd">修改密碼</a>
+        </section>
+        <div class="submit_box">
+            <a href="#" class="btn btn-default btn_primary" @click="UpdateRider">保存</a>
+        </div>
+    </div>
+    <div id="dialogs1">
+        <!--BEGIN dialog1-->
+        <div class="js_dialog" id="iosDialog1">
+            <div class="weui-mask" @click="hide"></div>
+            <div class="weui-dialog">
+                <div class="weui-dialog__hd"><strong class="weui-dialog__title"></strong></div>
+                <div class="weui-dialog__bd">騎手姓名不能為空</div>
+                <div class="weui-dialog__ft">
+                    <a href="javascript:;" class="weui-dialog__btn weui-dialog__btn_primary primary-sure" @click="hide">知道</a>
+                </div>
+            </div>
+        </div>
+        <!--END dialog1-->
+    </div>
+    <div id="dialogs2">
+        <!--BEGIN dialog1-->
+        <div class="js_dialog" id="iosDialog2">
+            <div class="weui-mask" @click="hide"></div>
+            <div class="weui-dialog">
+                <div class="weui-dialog__hd"><strong class="weui-dialog__title"></strong></div>
+                <div class="weui-dialog__bd">騎手号码请输入8位数！</div>
+                <div class="weui-dialog__ft">
+                    <a href="javascript:;" class="weui-dialog__btn weui-dialog__btn_primary primary-sure" @click="hide">知道</a>
+                </div>
+            </div>
+        </div>
+        <!--END dialog1-->
+    </div>
+</div>
+<script>
+    function getQueryString(name) {
+        var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
+        var r = location.search.substr(1).match(reg);
+        if (r != null) return unescape(decodeURI(r[2])); return null;
+    }
+    var app = new Vue({
+        el:".horseman",
+        data:{
+            riderId:'',
+            riderName:'',
+            phone:'',
+            userName:'',
+            name:'',
+            password:'',
+            getAllRiderStationData:"",//获取区域列表
+        },
+        created:function () {
+            this.getData();
+            this.getAllRiderStation();
+        },
+        methods:{
+            getAllRiderStation:function () { //获取区域列表
+                var _self = this;
+                var param  = {
+                };
+                CommonBase.request(getAllRiderStation_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.getAllRiderStationData =jsonstr.detailMsg;
+                        console.log(_self.getAllRiderStationData);
+                    }
+                });
+            },
+            hide:function () {
+                var dialogs1 = document.querySelector("#dialogs1").style.display="none";
+                var dialogs2 = document.querySelector("#dialogs2").style.display="none";
+            },
+            getData: function(){
+                var  riderId = getQueryString("riderId");
+                var vm = this;
+                var param  = {
+                    riderId:riderId,
+                };
+                CommonBase.request(getRiderInfo_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        vm.riderName = jsonstr.detailMsg.riderName;
+                        vm.phone = jsonstr.detailMsg.phone;
+                        vm.stationId = jsonstr.detailMsg.stationId;
+                    }
+                });
+            },
+            UpdateRider:function () {
+                var  riderId = getQueryString("riderId");
+                var _self = this;
+                var stationId = document.querySelector("#stationId");
+                var val = stationId.options[stationId.selectedIndex].value;
+                var name= document.querySelector("#name").value;
+                var phone=document.querySelector("#phone").value;
+                var password=document.querySelector("#password").value;
+                if(name==null||name ==""){
+                    $("#dialogs1").show();
+                    return false;
+                }
+                if(phone.length<8){
+                    $("#dialogs2").show();
+                    return false;
+                }
+                var param  = {
+                    stationId:val,
+                    riderId:riderId,
+                    name:name,
+                    phone:phone,
+                    password:password
+                };
+                //处理异常情况
+                var careBusinessException = function (jsonstr) {
+                    if(jsonstr.resultCode =="400"){
+                        com.toast(jsonstr.businessMsg.businessNote);
+                    }
+                }
+                CommonBase.request(addAndUpateRiderV2_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        com.toast("修改成功");
+                        setInterval(function () {
+                            window.location.href="horseman.html"
+                        },1000)
+                    }
+                },null,null,careBusinessException);
+
+            },
+            goPwd:function(){
+                var  riderId = getQueryString("riderId");
+                window.location.href="password.html?riderId="+riderId;
+            }
+        }
+    });
+</script>
+</body>
+</html>

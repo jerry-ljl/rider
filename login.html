@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/delivery.css">
+    <script src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/layer.js"></script>
+    <link href="css/layer.css" type="text/css" rel="styleSheet" id="layermcss">
+    <script type="text/javascript" src="js/pop.js"></script>
+    <script type="text/javascript" src="js/config.js"></script>
+    <script type="text/javascript" src="js/commonBase.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/jquery.toast.min.js"></script>
+    <link rel="stylesheet" href="css/jquery.toast.min.css">
+    <title>騎手登錄</title>
+</head>
+<body style="background: #f4f4f4">
+<div class="login-main">
+    <div class="container">
+        <div class="form-signin">
+            <h3 class="text-center">登錄</h3>
+            <input type="text" class="form-control" id="userName" name="userName" placeholder="調度賬號">
+            <input type="password" class="form-control" id="password" name="password" placeholder="調度密碼">
+            <a href="#" class="btn btn-large btn-primary login_btn" onclick="login()">登錄</a>
+        </div>
+    </div>
+</div>
+<script>
+    function login(){
+        var userName= document.querySelector("#userName").value;
+        var password=document.querySelector("#password").value;
+        if(userName==null||userName ==""){
+            pop.alert("調度賬號不能為空");
+            return false;
+        }
+        if(password==null||password ==""){
+            pop.alert("調度密碼不能為空");
+            return false;
+        }
+        var param  = {
+            userName :userName,
+            password:password,
+            channel:9
+        };
+
+        //处理异常情况
+        var careBusinessException = function (jsonstr) {
+            if(jsonstr.resultCode =="401"){
+                if(jsonstr.businessMsg.businessCode ==9003){
+                    alert(jsonstr.businessMsg.businessNote);
+                }
+            }
+        }
+        CommonBase.request(dispatcherLogin_url,param,function (jsonstr) {
+            if (jsonstr.resultCode == "0") {
+                sessionStorage.setItem("dispatcherToken",jsonstr.detailMsg.dispatcherToken);
+                sessionStorage.setItem("dispatcherRefreshToken",jsonstr.detailMsg.dispatcherRefreshToken);
+                window.location.href = "index.html";
+            }
+        },null,null,careBusinessException);
+    }
+</script>
+</body>
+</html>

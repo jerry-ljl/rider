@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/delivery.css">
+    <script src="js/jquery.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/vue.js"></script>
+    <script src="js/jquery.toast.min.js"></script>
+    <script src="js/common.js"></script>
+    <script type="text/javascript" src="js/commonBase.js"></script>
+    <link rel="stylesheet" href="css/jquery.toast.min.css">
+    <title>調度</title>
+    <script src="js/pop.js"></script>
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="lib/theme-chalk/index.css">
+    <!-- 引入组件库 -->
+    <script src="lib/index.js"></script>
+    <script src="lib/main.js"></script>
+</head>
+<body>
+    <div class="distribute" id="main">
+    <div class="main-title">
+        調度
+    </div>
+    <div class="search_box">
+        <div><img class="icon_time location_icon" style="width: 20px;" src="images/date_icon.png" alt=""></div>
+        <div class="select_area">
+            <select class="form-control" v-model="getDate"  @change="changeDate">
+                <option :value="1">{{GetDateStr(0)}}</option>
+                <option :value="2">{{GetDateStr(-1)}}</option>
+                <option :value="3">{{GetDateStr(-2)}}</option>
+            </select>
+        </div>
+        <div class="select_area">
+            <select class="form-control area-box" id="stationId" v-model="stationId" @change="refreshData">
+                <option :value="item" v-for="item in getAllRiderStationData" >{{item.name}}</option>
+            </select>
+        </div>
+        <div class="input_box">
+            <input type="text" class="form-control" id="search_condition" placeholder="訂單號或者商家名稱" />
+            <input type="text" class="form-control" id="search_condition1" placeholder="騎手姓名或者手機號" />
+        </div>
+        <div class="search_submit">
+            <a href="#" class="btn btn-default btn_primary" @click="refreshData">查詢</a>
+            <a href="#" class="btn btn-default btn_primary" @click="refreshData">刷新</a>
+        </div>
+    </div>
+    <div class="distribute_content">
+        <!-- 骑手列表-->
+        <div class="line_box">
+            <select class="select-state form-control" @change="riderStatus" v-model="riderOrderItem.riderState"  id="riderStatus">
+                <option value="1">在崗<span>（{{RiderOnlineData.onWork}}）</span></option>
+                <option value=" " >全部<span>（{{RiderOnlineData.total}}）</span></option>
+                <option value="2">收工<span>（{{RiderOnlineData.offWork}}）</span></option>
+                <option value="3">掉線<span>（{{RiderOnlineData.offline}}）</span></option>
+            </select>
+            <!-- 骑手区域-->
+            <div class="line_list">
+                <table class="table table-bordered table-responsive">
+                    <thead>
+                    <tr class="takeout-head">
+                        <th>騎手</th>
+                        <th>送/總</th>
+                        <th >距離</th>
+                        <th>操作</th>
+                        <th>定位</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr v-for="item in riderSituationVoListData"  v-show="orderState == 0 || orderState == 7">
+                        <td @click="showRirder(item)">{{item.name}}</td>
+                        <td @click="showRirder(item)">{{item.sendAmount}}/{{item.totalAmount}}</td>
+                        <td @click="showRirder(item)">
+                            <span class="offline" v-show="item.riderState==3">掉線</span>
+                            <span v-show="item.riderState==1 && !isNewOrder">-</span>
+                            <span v-show="item.riderState==1 && isNewOrder" class="distance-box" style="display:inline-block;max-width: 126px;overflow: hidden;!important;">{{item.distance}}m</span>
+                        </td>
+                        <td class="operation">
+                            <span v-show="!isNewOrder &&item.riderState==3">-</span>
+                            <a href="#" class="btn a_primary btn_appoint" v-show="item.riderState==1 && isNewOrder && !isSecondAppoint" @click="appoint(item)">指派</a>
+                            <a href="#" class="btn a_primary btn_appoint" v-show="isSecondAppoint" @click="secondAppiont(item)">繼續指派</a>
+                        </td>
+                        <td class="operation" @click="riderLocation(item)">
+                            <img class="location_icon" src="images/location_icon.png" alt="">
+                        </td>
+                    </tr>
+                    <tr v-for="item in riderSituationVoListData"  v-show="orderState == 1 || orderState== 2 || orderState == 3 || orderState== 4 ||orderState == 5 || orderState== 6 || orderState== 8">
+                        <td @click="showRirder(item)">{{item.name}}</td>
+                        <td @click="showRirder(item)">{{item.sendAmount}}/{{item.totalAmount}}</td>
+                        <td @click="showRirder(item)">
+                            <span class="offline" v-show="item.riderState==3">掉線</span>
+                            <span v-show="item.riderState==1 && !isNewOrder || item.riderState==0 && isNewOrder">-</span>
+                        </td>
+                        <td class="operation" @click="showRirder(item)">
+                            <span v-show="isNewOrder &&item.riderState==1 || item.riderState==0 && isNewOrder">-</span>
+                        </td>
+                        <td class="operation" @click="riderLocation(item)">
+                            <img class="location_icon" src="images/location_icon.png" alt="">
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <!-- 订单状态区域-->
+        <div class="order_box">
+            <div class="select_status" >
+                <a href="#" class="item" :class="{item_active:orderState == 7}" @click="selectStatus(7)">商家已接單未指派<span>{{getStoreAcceptOrderList_detailMsg.totalCount}}</span><span class="sub_title">超時 <i id="StoreAcceptOrder">{{timeoutCount_StoreAccept}}</i></span></a>
+                <a href="#" class="item" :class="{item_active:orderState == 0}" @click="selectStatus(0)">商家已出餐未指派<span>{{noSendData_detailMsg.totalCount}}</span><span class="sub_title">超時 <i id="noSend">{{timeoutCount_noSend}}</i></span></a>
+                <a href="#" class="item" :class="{item_active:orderState == 1}" @click="selectStatus(1)">已指派未確認<span>{{staySureData_detailMsg.totalCount}}</span><span class="sub_title">超時 <i id="staySure">{{timeoutCount_staySure}}</i></span></a>
+                <a href="#" class="item" :class="{item_active:orderState == 2}" @click="selectStatus(2)">骑手已接單<span>{{receiveData_detailMsg.totalCount}}</span><span class="sub_title">超時 <i id="receive">{{timeoutCount_receive}}</i></span></a>
+                <a href="#" class="item" :class="{item_active:orderState == 3}" @click="selectStatus(3)">骑手上報到店<span>{{alreadySendData_detailMsg.totalCount}}</span><span class="sub_title">超時 <i id="alreadySend">{{timeoutCount_alreadySend}}</i></span></a>
+                <a href="#" class="item" :class="{item_active:orderState == 4}" @click="selectStatus(4)">騎手取貨離店<span>{{leaveStoreData_detailMsg.totalCount}}</span><span class="sub_title">超時 <i id="leaveStore">{{timeoutCount_leaveStore}}</i></span></a>
+                <a href="#" class="item" :class="{item_active:orderState == 5}" @click="selectStatus(5)">已到配送地址<span>{{ArriveAddressData_detailMsg.totalCount}}</span><span class="sub_title">超時 <i id="ArriveAddress">{{timeoutCount_ArriveAddress}}</i></span></a>
+                <a href="#" class="item" :class="{item_active:orderState == 6}" @click="selectStatus(6)">已完成 <span>{{arriveSendData_detailMsg.totalCount}}</span> <span class="sub_title">超時 <i id="arriveSend">{{timeoutCount_arriveSend}}</i></span></a>
+                <a href="#" class="item" :class="{item_active:orderState == 8}" @click="selectStatus(8)">無效訂單 <span>{{getTimeOutOrderListData_detailMsg.totalCount}}</span> <span class="sub_title">超時 <i id="timeout">{{timeoutCount_getTimeOutOrder}}</i></span></a>
+            </div>
+            <table class="table table-bordered table-responsive">
+                <thead>
+                <tr class="order_box_title">
+                    <th>訂單ID</th>
+                    <th>狀態</th>
+                    <th>期望時間</th>
+                    <th>訂單狀態</th>
+                    <th>商家名稱</th>
+                    <th>送貨地址</th>
+                    <th>騎手</th>
+                    <th>操作</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-for="item in getStoreAcceptOrderListData" @click="riderSituationVoList(item)" :class="item.riderOrderId == currRiderOrderId?'hover':''" v-show="orderState == 7">
+                    <td>{{item.orderId}}</td>
+                    <td>
+                        <span>未指派</span>
+                        <span class="sub_title">(已過{{item.orderTimeUsed}} 分鐘)</span>
+                    </td>
+                    <td>
+                        <span class="reserve" v-show="item.acceptTime !=null">[專]</span>
+                        <span class="reserve" v-show="item.reserves">[預]</span>
+                        <span v-show="item.arriveDate==1">(明天)</span>
+                        <span class="arriveTime">{{item.arriveTime}}</span>
+                        <!--<span class="sub_title offline" v-show="item.orderTimeOut>0 && item.arriveDate==0">(超時{{item.orderTimeOut}}分鐘)</span>-->
+                        <!--<span class="sub_title" v-show="item.orderTimeLeft>0 && item.arriveDate==0">(剩餘{{item.orderTimeLeft}}分鐘)</span>-->
+                    </td>
+                    <td>
+                        <span v-show="item.cancelState == 0">正常</span>
+                        <span class="sub_title" v-show="item.cancelState ==1">用戶申请取消</span>
+                    </td>
+                    <td>{{item.storeName}}&nbsp;&nbsp;#{{item.sequenceNo}}<span class="sub_title">{{item.storeAddress}}</span><span class="sub_price">${{item.totalAmount}}</span><span class="address-box">電話：{{item.storePhone}}</span></td>
+                    <td>{{item.address}}{{item.addressDetail}}<span class="address-box">電話：{{item.memberPhone}}</span><span class="address-box">註冊電話：{{item.registPhone}}</span></td>
+                    <td><span>-</span></td>
+                    <td class="operation">
+                        <img class="location_see" src="images/see.png" alt="" @click="showMask(item)">
+                        <img class="location_icon" src="images/location_icon.png" alt="" @click="NosendDetail(item)">
+                    </td>
+                </tr>
+                <tr v-for="item in noSendData" @click="riderSituationVoList(item)" :class="item.riderOrderId == currRiderOrderId?'hover':''" v-show="orderState == 0">
+                    <td>{{item.orderId}}</td>
+                    <td>
+                        <span>未指派</span>
+                        <span class="sub_title">(已過{{item.orderTimeUsed}} 分鐘)</span>
+                    </td>
+                    <td>
+                        <span class="reserve" v-show="item.acceptTime !=null">[專]</span>
+                        <span class="reserve" v-show="item.reserves">[預]</span>
+                        <span v-show="item.arriveDate==1">(明天)</span>
+                        <span class="arriveTime">{{item.arriveTime}}</span>
+                        <span class="sub_title offline" v-show="item.orderTimeOut>0 && item.arriveDate==0">(超時{{item.orderTimeOut}}分鐘)</span>
+                        <span class="sub_title" v-show="item.orderTimeLeft>0 && item.arriveDate==0">(剩餘{{item.orderTimeLeft}}分鐘)</span>
+                        <span class="sub_title" v-show="item.cancelState==1">用戶取消訂單</span>
+                    </td>
+                    <td>
+                        <span v-show="item.cancelState == 0">正常</span>
+                        <span class="sub_title" v-show="item.cancelState ==1">用戶申请取消</span>
+                    </td>
+                    <td>{{item.storeName}}&nbsp;&nbsp;#{{item.sequenceNo}}<span class="sub_title">{{item.storeAddress}}</span><span class="sub_price">${{item.totalAmount}}</span><span class="address-box">電話：{{item.storePhone}}</span></td>
+                    <td>{{item.address}}{{item.addressDetail}}<span class="address-box">電話：{{item.memberPhone}}</span><span class="address-box">註冊電話：{{item.registPhone}}</span></td>
+                    <td><span>-</span></td>
+                    <td class="operation">
+                        <img class="location_see" src="images/see.png" alt="" @click="showMask(item)">
+                        <img class="location_icon" src="images/location_icon.png" alt="" @click="NosendDetail(item)">
+                    </td>
+                </tr>
+                <tr v-for="item in staySureData" @click="riderSituationVoList(item)" v-show="orderState == 1"  :class="item.riderOrderId == currRiderOrderId ?'hover':''">
+                    <td>{{item.orderId}}</td>
+                    <td>
+                        <span>派單未確認</span>
+                        <span class="sub_title">(已過{{item.orderTimeUsed}}分鐘)</span>
+                        <span class="sub_title offline">{{item.useTime_c}}</span>
+                    </td>
+                    <td>
+                        <span class="reserve" v-show="item.acceptTime !=null">[專]</span>
+                        <span class="reserve" v-show="item.reserves">[預]</span><span class="arriveTime">{{item.arriveTime}}</span>
+                        <span v-show="item.arriveDate==1">(明天)</span>
+                        <span class="sub_title offline" v-show="item.orderTimeOut>0 && item.arriveDate==0">(超時{{item.orderTimeOut}}分鐘)</span>
+                        <span class="sub_title" v-show="item.orderTimeLeft>0 && item.arriveDate==0">(剩餘{{item.orderTimeLeft}}分鐘)</span>
+                    </td>
+                    <td>
+                        <span v-show="item.cancelState == 0">正常</span>
+                        <span class="sub_title" v-show="item.cancelState ==1">用戶申请取消</span>
+                    </td>
+                    <td>{{item.storeName}}&nbsp;&nbsp;#{{item.sequenceNo}}<span class="sub_title">{{item.storeAddress}}</span><span class="sub_price">${{item.totalAmount}}</span><span class="address-box">電話：{{item.storePhone}}</span></td>
+                    <td>{{item.address}}{{item.addressDetail}}<span class="address-box">電話：{{item.memberPhone}}</span><span class="address-box">註冊電話：{{item.registPhone}}</span></td>
+                    <td>{{item.riderName}}</td>
+                    <td class="operation">
+                        <img class="location_see" src="images/see.png" alt="" @click="showMask(item)">
+                        <img class="location_icon" src="images/location_icon.png" alt="" @click="orderDetail(item)">
+                    </td>
+                </tr>
+                <tr v-for="item in receiveData" @click="riderSituationVoList(item)" v-show="orderState == 2"  :class="item.riderOrderId == currRiderOrderId ?'hover':''">
+                    <td>{{item.orderId}}</td>
+                    <td>
+                        <span>騎手已接單</span>
+                        <span class="sub_title">(已過{{item.orderTimeUsed}}分鐘)</span>
+                    </td>
+                    <td>
+                        <span class="reserve" v-show="item.acceptTime !=null">[專]</span>
+                        <span class="reserve" v-show="item.reserves">[預]</span><span class="arriveTime">{{item.arriveTime}}</span>
+                        <span v-show="item.arriveDate==1">(明天)</span>
+                        <span class="sub_title offline" v-show="item.orderTimeOut>0 && item.arriveDate==0">(超時{{item.orderTimeOut}}分鐘)</span>
+                        <span class="sub_title" v-show="item.orderTimeLeft>0 && item.arriveDate==0">(剩餘{{item.orderTimeLeft}}分鐘)</span>
+                    </td>
+                    <td>
+                        <span v-show="item.cancelState == 0">正常</span>
+                        <span class="sub_title" v-show="item.cancelState ==1">用戶申请取消</span>
+                    </td>
+                    <td>{{item.storeName}}&nbsp;&nbsp;#{{item.sequenceNo}}<span class="sub_title">{{item.storeAddress}}</span><span class="sub_price">${{item.totalAmount}}</span><span class="address-box">電話：{{item.storePhone}}</span></td>
+                    <td>{{item.address}}{{item.addressDetail}}<span class="address-box">電話：{{item.memberPhone}}</span><span class="address-box">註冊電話：{{item.registPhone}}</span></td>
+                    <td>{{item.riderName}}</td>
+                    <td class="operation" >
+                        <img class="location_see" src="images/see.png" alt="" @click="showMask(item)">
+                        <img class="location_icon" src="images/location_icon.png" alt="" @click="orderDetail(item)">
+                    </td>
+                </tr>
+                <tr v-for="item in alreadySendData" @click="riderSituationVoList(item)" v-show="orderState == 3"  :class="item.riderOrderId == currRiderOrderId ?'hover':''">
+                    <td>{{item.orderId}}</td>
+                    <td>
+                        <span>騎手上報到店</span>
+                        <span class="sub_title">(已過{{item.orderTimeUsed}}分鐘)</span>
+                    </td>
+                    <td>
+                        <span class="reserve" v-show="item.acceptTime !=null">[專]</span>
+                        <span class="reserve" v-show="item.reserves">[預]</span><span class="arriveTime">{{item.arriveTime}}</span>
+                        <span v-show="item.arriveDate==1">(明天)</span>
+                        <span class="sub_title offline" v-show="item.orderTimeOut>0 && item.arriveDate==0">(超時{{item.orderTimeOut}}分鐘)</span>
+                        <span class="sub_title" v-show="item.orderTimeLeft>0 && item.arriveDate==0">(剩餘{{item.orderTimeLeft}}分鐘)</span>
+                    </td>
+                    <td>
+                        <span v-show="item.cancelState == 0">正常</span>
+                        <span class="sub_title" v-show="item.cancelState ==1">用戶申请取消</span>
+                    </td>
+                    <td>{{item.storeName}}&nbsp;&nbsp;#{{item.sequenceNo}}<span class="sub_title" >{{item.storeAddress}}</span><span class="sub_price">${{item.totalAmount}}</span><span class="address-box">電話：{{item.storePhone}}</span></td>
+                    <td>{{item.address}}{{item.addressDetail}}<span class="address-box">電話：{{item.memberPhone}}</span><span class="address-box">註冊電話：{{item.registPhone}}</span></td>
+                    <td>{{item.riderName}}</td>
+                    <td class="operation" >
+                        <img class="location_see" src="images/see.png" alt="" @click="showMask(item)">
+                        <img class="location_icon" src="images/location_icon.png" alt="" @click="orderDetail(item)">
+                    </td>
+                </tr>
+                <tr v-for="item in leaveStoreData" @click="riderSituationVoList(item)" v-show="orderState == 4"  :class="item.riderOrderId == currRiderOrderId ?'hover':''">
+                    <td>{{item.orderId}}</td>
+                    <td>
+                        <span>取貨離店</span>
+                        <span class="sub_title">(已過{{item.orderTimeUsed}}分鐘)</span>
+                    </td>
+                    <td>
+                        <span class="reserve" v-show="item.acceptTime !=null">[專]</span>
+                        <span class="reserve" v-show="item.reserves">[預]</span><span class="arriveTime">{{item.arriveTime}}</span>
+                        <span v-show="item.arriveDate==1">(明天)</span>
+                        <span class="sub_title offline" v-show="item.orderTimeOut>0 && item.arriveDate==0">(超時{{item.orderTimeOut}}分鐘)</span>
+                        <span class="sub_title" v-show="item.orderTimeLeft>0 && item.arriveDate==0">(剩餘{{item.orderTimeLeft}}分鐘)</span>
+                    </td>
+                    <td>
+                        <span v-show="item.cancelState == 0">正常</span>
+                        <span class="sub_title" v-show="item.cancelState ==1">用戶申请取消</span>
+                    </td>
+                    <td>{{item.storeName}}&nbsp;&nbsp;#{{item.sequenceNo}}<span class="sub_title" >{{item.storeAddress}}</span><span class="sub_price">${{item.totalAmount}}</span><span class="address-box">電話：{{item.storePhone}}</span></td>
+                    <td>{{item.address}}{{item.addressDetail}}<span class="address-box">電話：{{item.memberPhone}}</span><span class="address-box">註冊電話：{{item.registPhone}}</span></td>
+                    <td>{{item.riderName}}</td>
+                    <td class="operation" >
+                        <img class="location_see" src="images/see.png" alt="" @click="showMask(item)">
+                        <img class="location_icon" src="images/location_icon.png" alt="" @click="orderDetail(item)">
+                    </td>
+                </tr>
+                <tr v-for="item in ArriveAddressData" @click="riderSituationVoList(item)" v-show="orderState == 5"  :class="item.riderOrderId == currRiderOrderId ?'hover':''">
+                    <td>{{item.orderId}}</td>
+                    <td>
+                        <span>已到達配送地址</span>
+                        <span class="sub_title">(已過{{item.orderTimeUsed}}分鐘)</span>
+                    </td>
+                    <td>
+                        <span class="reserve" v-show="item.acceptTime !=null">[專]</span>
+                        <span class="reserve" v-show="item.reserves">[預]</span><span class="arriveTime">{{item.arriveTime}}</span>
+                        <span v-show="item.arriveDate==1">(明天)</span>
+                        <span class="sub_title offline" v-show="item.orderTimeOut>0 && item.arriveDate==0">(超時{{item.orderTimeOut}}分鐘)</span>
+                        <span class="sub_title" v-show="item.orderTimeLeft>0 && item.arriveDate==0">(剩餘{{item.orderTimeLeft}}分鐘)</span>
+                    </td>
+                    <td>
+                        <span v-show="item.cancelState == 0">正常</span>
+                        <span class="sub_title" v-show="item.cancelState ==1">用戶申请取消</span>
+                    </td>
+                    <td>{{item.storeName}}&nbsp;&nbsp;#{{item.sequenceNo}}<span class="sub_title">{{item.storeAddress}}</span><span class="sub_price">${{item.totalAmount}}</span><span class="address-box">電話：{{item.storePhone}}</span></td>
+                    <td>{{item.address}}{{item.addressDetail}}<span class="address-box">電話：{{item.memberPhone}}</span><span class="address-box">註冊電話：{{item.registPhone}}</span></td>
+                    <td>{{item.riderName}}</td>
+                    <td class="operation" >
+                        <img class="location_see" src="images/see.png" alt="" @click="showMask(item)">
+                        <img class="location_icon" src="images/location_icon.png" alt="" @click="orderDetail(item)">
+                    </td>
+                </tr>
+                <tr v-for="item in arriveSendData" @click="riderSituationVoList(item)" v-show="orderState == 6"  :class="item.riderOrderId == currRiderOrderId ?'hover':''">
+                    <td>{{item.orderId}}</td>
+                    <td>
+                        <span>已送達</span>
+                        <span class="sub_title">(已過{{item.orderTimeUsed}}分鐘)</span>
+                    </td>
+                    <td>
+                        <span class="reserve" v-show="item.acceptTime !=null">[專]</span>
+                        <span class="reserve" v-show="item.reserves">[預]</span><span class="arriveTime">{{item.arriveTime}}</span>
+                        <span v-show="item.arriveDate==1">(明天)</span>
+                        <span class="sub_title offline" v-show="item.orderTimeOut>0 && item.arriveDate==0">(超時{{item.orderTimeOut}}分鐘)</span>
+                        <span class="sub_title" v-show="item.orderTimeLeft>0 && item.arriveDate==0">(剩餘{{item.orderTimeLeft}}分鐘)</span>
+                    </td>
+                    <td>
+                        <span v-show="item.cancelState == 0">正常</span>
+                        <span class="sub_title" v-show="item.cancelState ==1">用戶申请取消</span>
+                    </td>
+                    <td>{{item.storeName}}&nbsp;&nbsp;#{{item.sequenceNo}}<span class="sub_title" >{{item.storeAddress}}</span><span class="sub_price">${{item.totalAmount}}</span><span class="address-box">電話：{{item.storePhone}}</span></td>
+                    <td>{{item.address}}{{item.addressDetail}}<span class="address-box">電話：{{item.memberPhone}}</span><span class="address-box">註冊電話：{{item.registPhone}}</span></td>
+                    <td>{{item.riderName}}</td>
+                    <td class="operation" >
+                        <img class="location_see" src="images/see.png" alt="" @click="showMask(item)">
+                        <img class="location_icon" src="images/location_icon.png" alt="" @click="orderDetail(item)">
+                    </td>
+                </tr>
+                <tr v-for="item in getTimeOutOrderListData" @click="riderSituationVoList(item)" v-show="orderState == 8"  :class="item.riderOrderId == currRiderOrderId ?'hover':''">
+                    <td>{{item.orderId}}</td>
+                    <td>
+                        <span>-</span>
+                    </td>
+                    <td>
+                        <span v-show="item.acceptTime ==null">-</span>
+                        <span class="reserve" v-show="item.acceptTime !=null">[專]</span>
+                    </td>
+                    <td>
+                        <span class="sub_title">已取消</span>
+                    </td>
+                    <td>{{item.storeName}}&nbsp;&nbsp;#{{item.sequenceNo}}<span class="sub_title" >{{item.storeAddress}}</span><span class="sub_price">${{item.totalAmount}}</span><span class="address-box">電話：{{item.storePhone}}</span></td>
+                    <td>{{item.address}}{{item.addressDetail}}<span class="address-box">電話：{{item.memberPhone}}</span><span class="address-box">註冊電話：{{item.registPhone}}</span></td>
+                    <td>
+                        <span v-show="item.riderName==null">-</span>
+                        {{item.riderName}}
+                    </td>
+                    <td class="operation" >
+                        <img class="location_see" src="images/see.png" alt="" @click="showMask(item)">
+                        <img class="location_icon" src="images/location_icon.png" alt="" @click="orderDetail(item)">
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <!-- 订单操作记录查看区域-->
+    <div class="orderlist_box" id="orderlist_box" style="display: none">
+        <div class="weui-skin_android"  >
+            <div class="weui-mask" @click="hideMask"></div>
+            <div class="weui-actionsheet">
+                <div class="weui-actionsheet__menu">
+                    <div class="allInfo">
+                        <div class="allInfo-header">
+                            <span class="changeOrderStatus" v-show="orderState == 7 || orderState == 0"><el-button type="primary" @click="UpdateSelfsend(orderItem)">改為自送單</el-button></span>
+                            <span>#{{getOrderOptStatusData.sequenceNo}}</span>
+                            <span class="orderNum">訂單號：{{orderItem.orderId}}</span>
+                            <span class="reserve" v-show="getOrderOptStatusData.arriveTime != '立即配送'">[預]</span>
+                            <span class="expectTime" v-show="orderItem.state !=9">期望送達：{{orderItem.arriveTime}}</span>
+                            <span class="expectTime" v-show="orderItem.orderTimeOut>0">超時{{orderItem.orderTimeOut}}分鐘</span>
+                            <span class="expectTime" v-show="orderItem.orderTimeLeft>0">剩餘{{orderItem.orderTimeLeft}}分鐘</span>
+                            <span class="expectTime" v-show="orderItem.accept2DeliveryTime!==null">商家出餐用時：{{orderItem.accept2DeliveryTime}}分鐘</span></div>
+                        <div class="info-box">
+                            <table class="table table-bordered table-responsive">
+                                <tr>
+                                    <td>
+                                        <p>商家信息</p>
+                                        <p>商家名稱：{{getOrderOptStatusData.storeName}}</p>
+                                        <p>商家地址：{{getOrderOptStatusData.storeAddress}}</p>
+                                        <p>商家電話：{{getOrderOptStatusData.storePhone}}</p>
+                                        <p>訂單金額：{{getOrderOptStatusData.TotalAmount}}</p>
+                                    </td>
+                                    <td>
+                                        <p>顧客信息</p>
+                                        <p>顧客地址：{{getOrderOptStatusData.memberAddress}}</p>
+                                        <p>顧客電話：{{getOrderOptStatusData.memberPhone}}</p>
+                                        <p>顧客姓名：{{getOrderOptStatusData.memberName}}&nbsp;&nbsp;<span v-show="getOrderOptStatusData.gender=='男'">（先生）</span><span v-show="getOrderOptStatusData.gender=='女'">（女士）</span></p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="record">
+                            <div class="record-header">
+                                訂單操作記錄
+                            </div>
+                            <table class="table">
+                                <tr>
+                                    <td>操作</td>
+                                    <td>內容</td>
+                                    <td>操作人</td>
+                                    <td>操作時間</td>
+                                </tr>
+                                <tr v-for="item in takeOutOrderRecordList">
+                                    <td>{{item.recordName}}</td>
+                                    <td>{{item.content}}</td>
+                                    <td>{{item.userName}}</td>
+                                    <td>{{item.dateTime}}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--骑手未完成订单区域-->
+    <div class="riderlist_box" id="riderlist_box" style="display: none;" >
+        <div class="weui-skin_android"  >
+            <div class="weui-mask" @click="hideRirder"></div>
+            <div class="weui-actionsheet">
+                <div class="weui-actionsheet__menu">
+                    <div class="riderOrderNo">
+                        <div class="riderOrderNo-header" v-show="RiderUnfinishData.length>0" >
+                            <div>{{riderOrderItem.name}} <span class="rider-phone">[{{riderOrderItem.phone}}]</span><span>[{{RiderUnfinishData.length}}]</span></div>
+                        </div>
+                        <div class="riderOrderNo-con primary-table-border" v-show="RiderUnfinishData.length>0" style="max-height: 400px;overflow-x: auto">
+                            <table class="table table-responsive">
+                                <thead>
+                                <tr>
+                                    <th>狀態（用時）</th>
+                                    <th>剩餘時間</th>
+                                    <th>商家</th>
+                                    <th>收貨地址</th>
+                                    <th>操作</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr v-for="item in RiderUnfinishData">
+                                    <td>
+                                        <span v-show="item.orderState == 1">派單未確認</span>
+                                        <span v-show="item.orderState == 8">派單未確認</span>
+                                        <span v-show="item.orderState == 2">騎手已接單</span>
+                                        <span v-show="item.orderState == 6">騎手上報到店</span>
+                                        <span v-show="item.orderState == 3">取貨離店</span>
+                                        <span v-show="item.orderState == 7">已到達配送地址</span>
+                                        <span v-show="item.orderState == 4">已送達</span>
+                                        <span class="sub_title" v-show="item.riderOrderCeateTime !==null">（{{item.orderTimeUsed}}）</span>
+                                    </td>
+                                    <td>
+                                        <span class="sub_title" v-show="item.orderTimeOut>0" >超時{{item.orderTimeOut}}</span>
+                                        <span class="sub_title" v-show="item.orderTimeLeft>0">{{item.orderTimeLeft}}</span>
+                                    </td>
+                                    <td>{{item.storeName}}（{{item.storeAddress}}）</td>
+                                    <td class="userAddress">{{item.userAddress}}{{item.userAddressDetail}}</td>
+                                    <td>
+                                        <select name=""  class="form-control changeRider"  v-model="chooseRider" @change="showRiderSure(chooseRider,item)">
+                                            <option value="0" disabled style="display:none">&nbsp;&nbsp;改派訂單</option>
+                                            <option  v-for="rider in changeRiderUserListData" :value="rider">{{rider.riderUserName}}（{{rider.unFinishCount}}）</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="noOrder" :style="{ display: RiderUnfinishData.length == 0 ? 'block' : 'none' }">
+                            騎手目前無未完成訂單
+                        </div>
+                    </div>
+                    <div class="rider-box" style="display: none">
+                        <div class="hasOrder" v-show="RiderUnfinishData.length>0" :style="{ height: RiderUnfinishData.length == 0 ? 200+'px' : 'auto' }">
+                            <span class="title">未完成訂單：<span id="undone">{{RiderUnfinishData.length}}</span></span>
+                            <table class="table table-bordered table-responsive">
+                                <thead>
+                                <tr class="takeout-head">
+                                    <th>訂單ID</th>
+                                    <th>狀態 <span>已用時</span></th>
+                                    <th >期望時間</th>
+                                    <th>商家信息</th>
+                                    <th>用戶信息</th>
+                                </tr>
+                                </thead>
+                                <tr v-for="item in RiderUnfinishData" >
+                                    <td>{{item.orderId}}</td>
+                                    <td>
+                                        <span v-show="item.orderState == 1 ">派單未確認</span>
+                                        <span v-show="item.orderState == 2">騎手已接單</span>
+                                        <span v-show="item.orderState == 6">騎手上報到店</span>
+                                        <span v-show="item.orderState == 3">取貨離店</span>
+                                        <span v-show="item.orderState == 7">已到達配送地址</span>
+                                        <span v-show="item.orderState == 4">已送達</span>
+                                        <span class="sub_title">（{{item.orderTimeUsed}}分鐘）</span>
+                                    </td>
+                                    <td>{{item.arriveTime}}
+                                        <span class="sub_title offline">{{item.orderTimeOut}}</span>
+                                        <span class="sub_title">{{item.orderTimeLeft}}</span>
+                                    </td>
+                                    <td>
+                                        <span class="sub_title">{{item.storeName}} &nbsp;&nbsp;<span>#{{item.sequenceNo}}</span></span>
+                                        <span class="sub_title">{{item.storeAddress}}</span>
+                                        <span class="sub_price">${{item.totalAmount}}</span>
+                                        <span class="address-box">電話：{{item.storePhone}}</span>
+                                    </td>
+                                    <td>
+                                        <span class="sub_title">{{item.userAddress}}</span>
+                                        <span class="address-box">電話：{{item.userPhone}}</span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="noOrder" :style="{ display: RiderUnfinishData.length == 0 ? 'block' : 'none' }">
+                            騎手目前無未完成訂單
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--订单改派提示区域-->
+    <div id="dialogs" class="riderOrderNo-dialogs" style="display: none">
+        <!--BEGIN dialog1-->
+        <div class="js_dialog" id="iosDialog1" style="opacity: 1;">
+            <div class="weui-mask"></div>
+            <div class="weui-dialog">
+                <div class="weui-dialog__hd"><strong class="weui-dialog__title"></strong></div>
+                <div class="weui-dialog__bd dialog-title riderOrderNo-dialogs_title">確認提示</div>
+                <div class="dialog-con">
+                    確認將此訂單改派給“<span id="newRiderName1"></span>”，改派後，此訂單將由“<span id="newRiderName2"></span>”來配送
+                </div>
+                <div class="weui-dialog__ft riderOrderNo__ft">
+                    <a href="javascript:;" class="weui-dialog__btn weui-dialog__btn_default" @click="hideRiderOrder">取消</a>
+                    <a href="javascript:;" class="weui-dialog__btn weui-dialog__btn_primary" @click="changeRider">确定</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--取消单再指派提示-->
+    <div id="dialogs1" class="secondAppiont">
+        <div class="js_dialog">
+            <div class="weui-mask" @click="hideSecondAppiont"></div>
+            <div class="weui-dialog">
+                <div class="weui-dialog__hd"><strong class="weui-dialog__title"></strong></div>
+                <div class="weui-dialog__bd secondAppiont-text">請和商家確認，如商家拒絕<br>取消再指派騎手</div>
+                <div class="weui-dialog__ft riderOrderNo__ft">
+                    <a href="javascript:;" class="weui-dialog__btn weui-dialog__btn_default" @click="hideSecondAppiont">取消</a>
+                    <a href="javascript:;" class="weui-dialog__btn weui-dialog__btn_primary" @click="goSecondAppiont">确定</a>
+                </div>
+            </div>
+        </div>
+        <!--END dialog1-->
+    </div>
+</div>
+<script>
+    function getQueryString(name) {
+        var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
+        var matchString = window.location.href.split('?')[1];
+        var r = matchString && matchString.match(reg);
+        if (r != null) return decodeURIComponent(r[2]); return null;
+    }
+    var audioUrl = "订单粤语.mp3"
+    var app = new Vue({
+        el:"#main",
+        data:{
+            value5: '',
+            getAllRiderStationData:"",//获取区域列表
+            dataList:"",
+            RiderSituationData:"",
+            RiderOnlineData:"",
+            riderSituationVoListData:{},
+            noSendData:"",
+            staySureData:"",
+            receiveData:'',
+            alreadySendData:"",
+            leaveStoreData:"",
+            ArriveAddressData:"",
+            arriveSendData:"",
+            getTimeOutOrderListData:'',
+            orderState:0,
+            offline:false,
+            isNewOrder:false,
+            currRiderOrderId:'',
+            riderOrderId:'',
+            getOrderOptStatusData:"",
+            RiderUnfinishData:"",
+            takeOutOrderRecordList:"",
+            orderItem:{},//存储订单信息
+            riderOrderItem:{  //存储骑手订单信息
+                riderState:1
+            },
+            secondRirderItem:{},//存储骑手信息
+            selectTime:'',
+            lessTime_s:'',
+            stationId:{},
+            changeRiderUserListData:'',
+            onLineRiders:[],
+            OldRirderId:'',
+            chooseRider:0,//新的騎手id
+            onlineRirder:{},//獲取在線騎手
+            getStoreAcceptOrderListData:'',//商家已接單
+            isSecondAppoint:false,//繼續指派顯示
+            status:false,
+            audio:{},
+            deliveryTime:'',
+            timeoutCount_StoreAccept:'',//商家已接单列表超时单统计
+            timeoutCount_noSend:'',//已指派未确认列表超时单统计
+            timeoutCount_staySure:'',//商家已出餐列表超时单统计
+            timeoutCount_receive:'',//骑手已接单列表超时单统计
+            timeoutCount_alreadySend:'',//骑手上报到店列表超时单统计
+            timeoutCount_leaveStore:'',//骑手取货离店列表超时单统计
+            timeoutCount_ArriveAddress:'',//骑手已到达配送地址列表超时单统计
+            timeoutCount_arriveSend:'',//已送达列表超时单统计
+            timeoutCount_getTimeOutOrder:'',//无效单列表超时单统计
+            date:new Date().getTime(),
+            getDate:1,
+            getStoreAcceptOrderList_detailMsg:"",
+            noSendData_detailMsg:"",
+            staySureData_detailMsg:"",
+            receiveData_detailMsg:"",
+            alreadySendData_detailMsg:"",
+            leaveStoreData_detailMsg:"",
+            ArriveAddressData_detailMsg:"",
+            arriveSendData_detailMsg:"",
+            getTimeOutOrderListData_detailMsg:"",
+        },
+        created:function () {
+            this.getAllRiderStation();
+            this.audio = new Audio(audioUrl);
+            this.audio.pause();
+        },
+        mounted:function () {
+            setInterval(this.refreshData,60000);//1分鐘页面刷新一次
+        },
+        methods:{
+            initAfterGetAllRiderStation:function(){
+                this.noSend();//未指派订单
+                this.staySure();//未确认订单
+                this.alreadySend();//已取货订单
+                this.receive();//騎手已接單
+                this.leaveStore();//取货离店
+                this.ArriveAddress();//已到达配送地址
+                this.arriveSend();//已送达订单
+                this.getTimeOutOrderList();//已送达订单
+                this.RiderSituation();//获取订单状态统计
+                this.RiderOnline();//获取骑手状态统计
+                this.riderSituationVoList();//获取所有骑手订单信息
+                this.getTimeOutOrderList();//無效單
+            },
+            today:function () {
+                var today = new Date();
+                return today.getTime()
+            },
+
+            GetDateStr(AddDayCount) {//日期
+                var today = new Date();
+                today.setDate(today.getDate()+AddDayCount);
+                // var y = dd.getFullYear();
+                var m = today.getMonth()+1;//获取当前月份的日期
+                var d = today.getDate();
+                return m+"月-"+d+"日";
+            },
+            changeDate:function () {
+                var _self=this
+                var today = new Date();
+                if(this.getDate==1){
+                    this.date =today.getTime()
+                }else if(this.getDate==2){
+                    this.date =today.getTime()-3600*1000*24
+                }else {
+                    this.date=today.getTime()-3600*1000*24*2
+                }
+                _self.refreshData();
+            },
+            audioStoped :function () {
+                if(this.audio.paused || this.audio.ended){
+                    return true
+                }else{
+                    return false
+                }
+            },
+            getAllRiderStation:function () {
+                var _self = this;
+                var param  = {
+                };
+                CommonBase.request(getAllRiderStation_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.getAllRiderStationData =jsonstr.detailMsg;
+                        _self.stationId = jsonstr.detailMsg[0];
+                        _self.initAfterGetAllRiderStation()
+                    }
+                });
+            },
+            hideRiderOrder:function () { //取消改派弹层
+                var dialogs = document.querySelector("#dialogs").style.display="none";
+                  location.href="distribute.html";
+            },
+            showRiderSure:function (chooseRider,item) { //改派弹层
+                $("#dialogs").show();
+                var _self = this;
+                _self.onlineRirder = item;
+                $("#riderlist_box").hide();
+                document.querySelector("#newRiderName1").innerHTML = chooseRider.riderUserName;//新骑手姓名
+                document.querySelector("#newRiderName2").innerHTML = chooseRider.riderUserName;
+            },
+            changeRider:function () { //确认骑手改派n
+                var _self = this;
+                var param  = {
+                    oldRiderId:this.riderOrderItem.id,
+                    newRiderId:this.chooseRider.riderUserId,
+                    orderId:this.onlineRirder.orderId,
+                    date:this.date
+                };
+                //处理异常情况
+                var careBusinessException = function (jsonstr) {
+                    if(jsonstr.businessMsg.businessCode ==1126){
+                        com.toast(jsonstr.businessMsg.businessNote);
+                        setInterval(function () {
+                            window.location.reload();
+                        },1000)
+                    }
+                }
+                var beforeSendFunction = function (jsonstr) {
+                    $(".loading").show();
+                }
+                CommonBase.request(changeRiderUser_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        $("#dialogs").hide();
+                        $(".loading").hide();
+                        com.toast("訂單改派成功");
+                        setInterval(function () {
+                            _self.refreshData();
+                            window.location.reload();
+                        },1000)
+                    }
+                },beforeSendFunction,null,careBusinessException);
+            },
+            showRirder:function (item) { //骑手未完成订单弹窗
+                var _self = this;
+                _self.riderOrderItem = item;
+                $("#riderlist_box").show();
+                this.changeRiderUserList();
+                var riderId = item.id;
+                var param  = {
+                    riderId:riderId, //骑手id,
+                    date:this.date
+                };
+                CommonBase.request(getRiderUnfinish_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        jsonstr.detailMsg.forEach(function (item) {
+                            if(item.arriveTime == '立即配送'){
+                                if(item.acceptTime==null){
+                                    item.arriveTime = _self.addTime35min(item.acceptTime)
+                                }else{
+                                    item.arriveTime = _self.addTime35min(item.acceptTime)
+                                }
+                            }
+                            item.riderOrderCeateTimes = _self.isToday(item.orderCreateTime);
+                            if(item.riderOrderCeateTimes !=""){
+                                item.sequenceNo = item.sequenceNo+" "+"("+item.riderOrderCeateTimes+")";
+                            }
+                            if(item.riderOrderCeateTime==null){
+                                item.useTime = _self.useTime(item.acceptTime);
+                            }else {
+                                item.useTime = _self.useTime(item.riderOrderCeateTime);
+                            }
+                        });
+                        _self.RiderUnfinishData = jsonstr.detailMsg;
+
+                    }
+
+                });
+            },
+            changeRiderUserList:function () { //同区域下的在线骑手列表
+                var _self = this;
+                var param  = {
+                    riderUserId:_self.riderOrderItem.id,
+                    stationId:_self.stationId.id,
+                    date:this.date
+                };
+                CommonBase.request(changeRiderUserList_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.changeRiderUserListData =jsonstr.detailMsg;
+                    }
+                });
+            },
+            hideRirder:function () {//隐藏骑手未完成订单弹窗
+                $(".riderlist_box").hide();
+            },
+            hideMask:function () { //隐藏订单操作记录弹窗
+                $(".orderlist_box").hide();
+            },
+            showMask:function (item) {//订单操作记录弹窗
+                $("#orderlist_box").show();
+                var _self = this;
+                var param  = {
+                    riderOrderId:item.riderOrderId,
+                    date:this.date
+                };
+                CommonBase.request(getOrderOptStatus_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.getOrderOptStatusData = jsonstr.detailMsg;
+                        _self.takeOutOrderRecordList = jsonstr.detailMsg.takeOutOrderRecordList;
+                         _self.orderItem = item;
+                         _self.deliveryTime=_self.deliveryTimes(item);
+                    }
+                });
+            },
+            addTime35min:function (orderTime) { //专送单添加分钟
+                var date = new Date();
+                var timestamp = (Date.parse(new Date()));//当前时间戳
+                var q_timestamp =orderTime; //期望時間戳
+                var newDate = new Date(q_timestamp);
+                h = newDate.getHours();
+                m = newDate.getMinutes();
+                if(h<10){
+                    h= '0' + h;
+                }
+                if(m<10){
+                    m = '0' + m;
+                }
+                return h+":"+m;
+            },
+            addTime40min:function (orderTime) { //添加40分钟
+                var date = new Date();
+                var timestamp = (Date.parse(new Date()));//当前时间戳
+                var q_timestamp =orderTime; //期望時間戳
+                var newDate = new Date(q_timestamp);
+                h = newDate.getHours();
+                m = newDate.getMinutes();
+                if(h<10){
+                    h= '0' + h;
+                }
+                if(m<10){
+                    m = '0' + m;
+                }
+                return h+":"+m;
+            },
+            useTime:function (orderTime) {
+                var date = new Date();
+                var timestamp = (Date.parse(new Date()));//当前时间戳
+                var c_timestamp =((timestamp-orderTime)/1000/60).toFixed(0);//使用了多少時間
+                if(c_timestamp>0){
+                    return c_timestamp;
+                }
+                return Math.abs(c_timestamp);
+            },
+            useTimes:function (orderTime,orderFinshTime) { //送达订单用时统计
+                var date = new Date();
+                var c_timestamp =((orderFinshTime-orderTime)/1000/60).toFixed(0);//超时
+                if(c_timestamp>0){
+                    return c_timestamp;
+                }
+                else {
+                    return Math.abs(c_timestamp);
+                }
+            },
+            isToday:function (time) { //判断非当日订单
+                var orderDate = new Date(time);
+                if (new Date().getDate() != orderDate.getDate()){ //日期比较
+                    var now = new Date();
+                    var todayTime = now.getTime();
+                    var value = ((time-todayTime)/(1000*60*60*24)).toFixed(0);
+                    if(value ==-1){
+                        return "昨天";
+                    }
+                    else {
+                        var m = orderDate.getMonth() +1;
+                        var d = orderDate.getDate();
+                        if(m<10){
+                            m = '0' + m;
+                        }
+                        if(d<10){
+                            d = '0' + d;
+                        }
+                        return m + '-' + d
+                    }
+                } else {
+                    return ''
+                }
+            },
+            deliveryTimes:function (item) {
+               var countTime = item.riderOrderCeateTime-item.acceptTime;
+               var c_timestamp =((countTime)/1000/60).toFixed(0);
+                return c_timestamp+'分鐘';
+            },
+            refreshData:function () { //區域選擇刷新数据
+                console.log(new Date());
+                this.noSend();//未指派订单
+                this.staySure();//未确认订单
+                this.receive();//骑手已接单
+                this.alreadySend();//已取货订单--骑手上报到店
+                this.leaveStore();//取货离店
+                this.ArriveAddress();//已到达配送地址
+                this.arriveSend();//已送达订单
+                this.getTimeOutOrderList();//無效訂單
+                this.riderSituationVoList();//获取所有用户订单信息
+                this.RiderOnline();//騎手在線狀態
+                this.RiderSituation();//訂單狀態數目統計
+                this.getStoreAcceptOrderList();//商家已接單未配送
+            },
+            secondAppiont:function (item) {
+                this.secondRirderItem = item;
+                 document.querySelector(".secondAppiont").style.display="block";
+            },
+            hideSecondAppiont:function () {
+                document.querySelector(".secondAppiont").style.display="none";
+            },
+            //再次确认指派
+            goSecondAppiont:function () {
+                this.hideSecondAppiont();
+                var _self = this;
+                var riderOrderId = this.riderOrderId;
+                var param  = {
+                    riderId:_self.secondRirderItem.id,
+                    riderOrderId:riderOrderId,
+                    date:this.date
+                };
+                //处理异常情况
+                var careBusinessException = function (jsonstr) {
+                    if(jsonstr.businessMsg.businessCode ==1126){
+                        com.toast(jsonstr.businessMsg.businessNote);
+                        setInterval(function () {
+                            _self.refreshData();
+                        },1000)
+                    }
+                }
+                CommonBase.request(assignOrder_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.refreshData();
+                    }
+                },null,null,careBusinessException);
+            },
+            //指派
+            appoint:function (item) {
+                var _self = this;
+                var riderOrderId = this.riderOrderId;
+                var param  = {
+                    riderId:item.id,
+                    riderOrderId:riderOrderId,
+                    date:this.date
+                };
+                //处理异常情况
+                var careBusinessException = function (jsonstr) {
+                    if(jsonstr.businessMsg.businessCode ==1126){
+                        com.toast(jsonstr.businessMsg.businessNote);
+                        setInterval(function () {
+                            _self.refreshData();
+                        },1000)
+                    }
+                }
+                CommonBase.request(assignOrder_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.refreshData();
+                    }
+                },null,null,careBusinessException);
+            },
+            riderStatus:function (){//骑手状态
+                _self = this;
+                var riderStatus = document.querySelector("#riderStatus");
+                var val = riderStatus.options[riderStatus.selectedIndex].value;
+                if(val){
+                    this.riderSituationVoList();
+                }
+            },
+            selectStatus:function (item) {
+                this.noSendData = '';
+                this.orderState = item;
+                this.refreshData();
+            },
+            RiderSituation:function () { //获取订单状态统计
+                var _self = this;
+                var param  = {
+                    stationId:_self.stationId.id,
+                    date:this.date
+                };
+                CommonBase.request(getRiderOrderStatesCount_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.RiderSituationData = jsonstr.detailMsg;
+                    }
+                });
+
+            },
+            RiderOnline:function () {//获取骑手状态统计
+                var _self = this;
+                var param  = {
+                    stationId:_self.stationId.id,
+                    date:this.date
+                };
+                CommonBase.request(RiderOnlineSituation_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.RiderOnlineData = jsonstr.detailMsg;
+                    }
+                });
+            },
+            riderSituationVoList:function (item) {
+                //获取所有騎手订单信息
+                var _self = this;
+                var riderOrderId = ''; //默认不传骑手订单id
+                if(item){
+                    this.currRiderOrderId = item.riderOrderId;
+                    riderOrderId = item.riderOrderId;
+                    if(riderOrderId){
+                        this.isNewOrder = true;
+                    }
+                    if(item.cancelState==1){
+                        this.isSecondAppoint = true;
+                    }else{
+                        this.isSecondAppoint = false;
+                    }
+                }
+                this.riderOrderId  = riderOrderId;
+                var param  = {
+                    riderState:_self.riderOrderItem.riderState,
+                    riderOrderId:riderOrderId,
+                    stationId:_self.stationId.id,
+                    date:this.date
+                };
+                CommonBase.request(getAllRiderSituation_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.riderSituationVoListData = jsonstr.detailMsg;
+                        _self.onLineRiders =_self.riderSituationVoListData;
+
+                    }
+                });
+            },
+            //商家已接单未配送
+            getStoreAcceptOrderList:function () {
+                var search_condition1 = document.querySelector("#search_condition").value;
+                var search_condition2 = document.querySelector("#search_condition1").value;
+                var _self = this;
+                var param  = {
+                    searchKey1:search_condition1,
+                    searchKey2:search_condition2,
+                    stationId:_self.stationId.id,
+                    date:this.date
+                };
+                CommonBase.request(getStoreAcceptOrderList_url,param,function (jsonstr) {
+                    var overNum=0;
+                    if (jsonstr.resultCode == "0") {
+                        jsonstr.detailMsg.list.forEach(function (item) {
+                            if(item.arriveTime == '立即配送'){
+                                if(item.acceptTime==null){
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                    item.reserves = false;
+                                }else{
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                }
+                            }else {
+                                item.reserves = true;
+                            }
+                            item.riderOrderCeateTimes = _self.isToday(item.orderCreateTime);
+                            if(item.riderOrderCeateTimes !=""){
+                                item.sequenceNo = item.sequenceNo+" "+"("+item.riderOrderCeateTimes+")";
+                            }
+                            item.useTime = _self.useTime(item.riderOrderCeateTime);
+                        });
+                        _self.getStoreAcceptOrderListData = jsonstr.detailMsg.list;
+                        _self.timeoutCount_StoreAccept =jsonstr.detailMsg.timeoutCount;
+                        _self.getStoreAcceptOrderList_detailMsg =jsonstr.detailMsg;
+                        if(jsonstr.detailMsg!=null && jsonstr.detailMsg.length!=0){
+                            if(_self.audioStoped){
+                                _self.audio.load();
+                                _self.audio.play();
+                            }else{
+                                _self.audio.pause();
+                            }
+                        }
+                    }
+                });
+            },
+            //商家已出餐未指派
+            noSend:function () {
+                var search_condition1 = document.querySelector("#search_condition").value;
+                var search_condition2 = document.querySelector("#search_condition1").value;
+                var _self = this;
+                var param  = {
+                    searchKey1:search_condition1,
+                    searchKey2:search_condition2,
+                    stationId:_self.stationId.id,
+                    date:this.date
+                };
+                CommonBase.request(getNoAssignOrderList_url,param,function (jsonstr) {
+                    var overNum=0;
+                    if (jsonstr.resultCode == "0") {
+                        jsonstr.detailMsg.list.forEach(function (item) {
+                            if(item.arriveTime == '立即配送'){
+                                if(item.acceptTime==null){
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                    item.reserves = false;
+                                }else{
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                }
+                            }else {
+                                item.reserves = true;
+                            }
+                            item.riderOrderCeateTimes = _self.isToday(item.orderCreateTime);
+                            if(item.riderOrderCeateTimes !=""){
+                                item.sequenceNo = item.sequenceNo+" "+"("+item.riderOrderCeateTimes+")";
+                            }
+                            item.useTime = _self.useTime(item.riderOrderCeateTime);
+                        });
+                        _self.noSendData_detailMsg =jsonstr.detailMsg;
+                        _self.noSendData = jsonstr.detailMsg.list;
+                        _self.timeoutCount_noSend =jsonstr.detailMsg.timeoutCount;
+                        if(jsonstr.detailMsg!=null&&jsonstr.detailMsg.length!=0){
+                            if(_self.audioStoped){
+                                _self.audio.load();
+                                _self.audio.play();
+                            }else{
+                                _self.audio.pause();
+                            }
+                        }
+                    }
+                });
+            },
+            //已指派未确认订单
+            staySure:function () {
+                this.isNewOrder = false;
+                var search_condition1 = document.querySelector("#search_condition").value;
+                var search_condition2 = document.querySelector("#search_condition1").value;
+                var _self = this;
+                var param  = {
+                    searchKey1:search_condition1,
+                    searchKey2:search_condition2,
+                    stationId:_self.stationId.id,
+                    date:this.date
+                };
+                CommonBase.request(getAssignedOrderList_url,param,function (jsonstr) {
+                    var overNum=0;
+                    if (jsonstr.resultCode == "0") {
+                        jsonstr.detailMsg.list.forEach(function (item) {
+                            if(item.arriveTime == '立即配送'){
+                                if(item.acceptTime==null){
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                    item.reserves = false;
+                                }else{
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                }
+                            }else {
+                                item.reserves = true;
+                            }
+                            item.riderOrderCeateTimes = _self.isToday(item.orderCreateTime);
+                            if (item.riderOrderCeateTimes != "") {
+                                item.sequenceNo = item.sequenceNo + " " + "(" + item.riderOrderCeateTimes + ")";
+                            }
+                            if(item.riderOrderCeateTime==null){
+                                item.useTime = _self.useTime(item.acceptTime);
+                            }else {
+                                item.useTime = _self.useTime(item.riderOrderCeateTime);
+                            }
+                        });
+                        _self.staySureData_detailMsg =jsonstr.detailMsg;
+                        _self.staySureData = jsonstr.detailMsg.list;
+                        _self.timeoutCount_staySure = jsonstr.detailMsg.timeoutCount;
+                    }
+                });
+
+            },
+            //騎手已接單
+            receive:function () {
+                this.isNewOrder = false;
+                var search_condition1 = document.querySelector("#search_condition").value;
+                var search_condition2 = document.querySelector("#search_condition1").value;
+                var _self = this;
+                var param  = {
+                    searchKey1:search_condition1,
+                    searchKey2:search_condition2,
+                    stationId:_self.stationId.id,
+                    date:this.date
+                };
+                CommonBase.request(getAcceptOrderList_url,param,function (jsonstr) {
+                    var overNum=0;
+                    if (jsonstr.resultCode == "0") {
+                        jsonstr.detailMsg.list.forEach(function (item) {
+                            if(item.arriveTime == '立即配送'){
+                                if(item.acceptTime==null){
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                    item.reserves = false;
+                                }else{
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                }
+                            }else {
+                                item.reserves = true;
+                            }
+                            item.riderOrderCeateTimes = _self.isToday(item.orderCreateTime);
+                            if (item.riderOrderCeateTimes != "") {
+                                item.sequenceNo = item.sequenceNo + " " + "(" + item.riderOrderCeateTimes + ")";
+                            }
+                            if(item.riderOrderCeateTime==null){
+                                item.useTime = _self.useTime(item.acceptTime);
+                            }else {
+                                item.useTime = _self.useTime(item.riderOrderCeateTime);
+                            }
+                        });
+                        _self.receiveData_detailMsg =jsonstr.detailMsg;
+                        _self.receiveData = jsonstr.detailMsg.list;
+                        _self.timeoutCount_receive = jsonstr.detailMsg.timeoutCount;
+                    }
+                });
+
+            },
+            //已取货--骑手上报到店
+            alreadySend:function () {
+                this.isNewOrder = false;
+                var search_condition1 = document.querySelector("#search_condition").value;
+                var search_condition2 = document.querySelector("#search_condition1").value;
+                var _self = this;
+                var param  = {
+                    searchKey1:search_condition1,
+                    searchKey2:search_condition2,
+                    stationId:_self.stationId.id,
+                    date:this.date
+                };
+                CommonBase.request(getArriveStroeOrderList_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        var overNum=0;
+                        jsonstr.detailMsg.list.forEach(function (item) {
+                            if(item.arriveTime == '立即配送'){
+                                if(item.acceptTime==null){
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                    item.reserves = false;
+                                }else{
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                }
+                            }else {
+                                item.reserves = true;
+                            }
+                            item.riderOrderCeateTimes = _self.isToday(item.orderCreateTime);
+                            if(item.riderOrderCeateTimes !=""){
+                                item.sequenceNo = item.sequenceNo+" "+"("+item.riderOrderCeateTimes+")";
+                            }
+                            if(item.riderOrderCeateTime==null){
+                                item.useTime = _self.useTime(item.acceptTime);
+                            }else {
+                                item.useTime = _self.useTime(item.riderOrderCeateTime);
+                            }
+                        });
+                        _self.alreadySendData_detailMsg =jsonstr.detailMsg;
+                        _self.alreadySendData = jsonstr.detailMsg.list;
+                        _self.timeoutCount_alreadySend = jsonstr.detailMsg.timeoutCount;
+                    }
+                });
+
+            },
+            //取货离店
+            leaveStore:function () {
+                this.isNewOrder = false;
+                var search_condition1 = document.querySelector("#search_condition").value;
+                var search_condition2 = document.querySelector("#search_condition1").value;
+                var _self = this;
+                var param  = {
+                    searchKey1:search_condition1,
+                    searchKey2:search_condition2,
+                    stationId:_self.stationId.id,
+                    date:this.date
+                };
+                CommonBase.request(getObtainGoodsOrderList_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        var overNum=0;
+                        jsonstr.detailMsg.list.forEach(function (item) {
+                            if(item.arriveTime == '立即配送'){
+                                if(item.acceptTime==null){
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                    item.reserves = false;
+                                }else{
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                }
+                            }else {
+                                item.reserves = true;
+                            }
+                            item.riderOrderCeateTimes = _self.isToday(item.orderCreateTime);
+                            if(item.riderOrderCeateTimes !=""){
+                                item.sequenceNo = item.sequenceNo+" "+"("+item.riderOrderCeateTimes+")";
+                            }
+                            if(item.riderOrderCeateTime==null){
+                                item.useTime = _self.useTime(item.acceptTime);
+                            }else {
+                                item.useTime = _self.useTime(item.riderOrderCeateTime);
+                            }
+                        });
+                        _self.leaveStoreData_detailMsg =jsonstr.detailMsg;
+                        _self.leaveStoreData = jsonstr.detailMsg.list;
+                        _self.timeoutCount_leaveStore = jsonstr.detailMsg.timeoutCount;
+                    }
+                });
+            },
+            //已到达配送地址
+            ArriveAddress:function () {
+                this.isNewOrder = false;
+                var search_condition1 = document.querySelector("#search_condition").value;
+                var search_condition2 = document.querySelector("#search_condition1").value;
+                var _self = this;
+                var param  = {
+                    searchKey1:search_condition1,
+                    searchKey2:search_condition2,
+//                    stationId:sessionStorage.getItem("stationId")
+                    stationId:_self.stationId.id,
+                    date:this.date
+                };
+                CommonBase.request(getArriveMemberList_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        var overNum=0;
+                        jsonstr.detailMsg.list.forEach(function (item) {
+                            if(item.arriveTime == '立即配送'){
+                                if(item.acceptTime==null){
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                    item.reserves = false;
+                                }else{
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                }
+                            }else {
+                                item.reserves = true;
+                            }
+                            item.riderOrderCeateTimes = _self.isToday(item.orderCreateTime);
+                            if(item.riderOrderCeateTimes !=""){
+                                item.sequenceNo = item.sequenceNo+" "+"("+item.riderOrderCeateTimes+")";
+                            }
+                            if(item.riderOrderCeateTime==null){
+                                item.useTime = _self.useTime(item.acceptTime);
+                            }else {
+                                item.useTime = _self.useTime(item.riderOrderCeateTime);
+                            }
+                        });
+                        _self.ArriveAddressData_detailMsg =jsonstr.detailMsg;
+                        _self.ArriveAddressData = jsonstr.detailMsg.list;
+                        _self.timeoutCount_ArriveAddress = jsonstr.detailMsg.timeoutCount;
+                    }
+                });
+
+            },
+            //已送达
+            arriveSend:function () {
+                this.isNewOrder = false;
+                var search_condition1 = document.querySelector("#search_condition").value;
+                var search_condition2 = document.querySelector("#search_condition1").value;
+                var _self = this;
+                var param  = {
+                    searchKey1:search_condition1,
+                    searchKey2:search_condition2,
+                    stationId:_self.stationId.id,
+                    date:this.date
+                };
+                CommonBase.request(getFinishOrderList_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        var overNum=0;
+                        jsonstr.detailMsg.list.forEach(function (item) {
+                            if(item.arriveTime == '立即配送'){
+                                if(item.acceptTime==null){
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                    item.reserves = false;
+                                }else{
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                }
+                            }else {
+                                item.reserves = true;
+                            }
+                            item.riderOrderCeateTimes = _self.isToday(item.orderCreateTime);
+                            if(item.riderOrderCeateTimes !=""){
+                                item.sequenceNo = item.sequenceNo+" "+"("+item.riderOrderCeateTimes+")";
+                            }
+                            item.useTime = _self.useTimes(item.riderOrderCeateTime,item.riderOrderFinishTime);
+                        });
+                        _self.arriveSendData_detailMsg =jsonstr.detailMsg;
+                        _self.arriveSendData = jsonstr.detailMsg.list;
+                        _self.timeoutCount_arriveSend = jsonstr.detailMsg.timeoutCount;
+                    }
+                });
+            },
+            //無效訂單
+            getTimeOutOrderList:function () {
+                this.isNewOrder = false;
+                var search_condition1 = document.querySelector("#search_condition").value;
+                var search_condition2 = document.querySelector("#search_condition1").value;
+                var _self = this;
+                var param  = {
+                    searchKey1:search_condition1,
+                    searchKey2:search_condition2,
+                    stationId:_self.stationId.id,
+                    date:this.date
+                };
+                CommonBase.request(getTimeOutOrderList_url,param,function (jsonstr) {
+                    var overNum=0;
+                    if (jsonstr.resultCode == "0") {
+                        jsonstr.detailMsg.list.forEach(function (item) {
+                            if(item.arriveTime == '立即配送'){
+                                if(item.acceptTime==null){
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                    item.reserves = false;
+                                }else{
+                                    item.arriveTime = _self.addTime35min(item.riderOrderPreFinishTime)
+                                }
+                            }else {
+                                item.reserves = true;
+                            }
+                            item.riderOrderCeateTimes = _self.isToday(item.orderCreateTime);
+                            if (item.riderOrderCeateTimes != "") {
+                                item.sequenceNo = item.sequenceNo + " " + "(" + item.riderOrderCeateTimes + ")";
+                            }
+                            item.useTime = _self.useTime(item.riderOrderCeateTime);
+                        });
+                        _self.getTimeOutOrderListData_detailMsg =jsonstr.detailMsg;
+                        _self.getTimeOutOrderListData = jsonstr.detailMsg.list;
+                        _self.timeoutCount_getTimeOutOrder = jsonstr.detailMsg.timeoutCount;
+                    }
+                });
+
+            },
+            orderDetail:function(item){
+                window.open('orderDetail.html?riderOrderId='+item.riderOrderId,'_blank');
+            },
+            NosendDetail:function (item) {
+                window.open('noSend-detail.html?riderOrderId='+item.riderOrderId,'_blank');
+            },
+            riderLocation:function (item) {
+                window.open('riderLocation.html?riderId='+item.id,'_blank');
+            },
+            //得到當前日期
+            today:function () {
+                var today = new Date();
+                var today = new Date(today.getTime());
+                var h=today.getFullYear();
+                var m=today.getMonth()+1;
+                if(m<10){
+                    m = '0' + m;
+                }
+                var d=today.getDate();
+                if(d<10){
+                    d = '0' + d;
+                }
+                return m+"-"+d;
+            },
+            //改自送
+            UpdateSelfsend:function (temp) {
+                $(".orderlist_box").hide();
+                var _self = this
+                var param  = {
+                    orderId:temp.riderOrderId
+                };
+                CommonBase.request(getUpdate2selfsend_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.$message({
+                            message: '修改成功',
+                            type: 'success'
+                        });
+                        _self.getStoreAcceptOrderList();//商家已接單未配送
+                        _self.noSend();//未指派订单
+                    }
+                });
+            },
+        }
+    });
+
+</script>
+</body>
+</html>

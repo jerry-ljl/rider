@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <style type="text/css">
+        #l-map{height:780px;width:100%;}
+    </style>
+    <script type="text/javascript" src="http://api.map.baidu.com/api?v=2.0&ak=5YOp1myIXzGZiutzzavME5ww"></script>
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/delivery.css">
+    <script src="js/jquery.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/vue.js"></script>
+    <script type="text/javascript" src="js/commonBase.js"></script>
+    <title>訂單詳情</title>
+</head>
+<style>
+    .BMapLabel{
+        background-color: rgb(255, 255, 255);
+        border: 1px solid rgb(255, 255, 255) !important;
+        padding: 2px !important;
+        z-index: 9999 !important;
+    }
+</style>
+<body>
+<div class="main">
+    <div id="l-map"></div>
+    <!--<div class="pop_box">-->
+        <!--<div class="pop_header">-->
+            <!--<span>[达]{{dataList.arriveTime}}</span>-->
+            <!--<span>金额：${{dataList.totalFeeAmount}}</span>-->
+        <!--</div>-->
+        <!--<div class="pop_content">-->
+            <!--<div class="get-box">-->
+                <!--<span class="round">取</span>-->
+                <!--<span>{{dataList.storeName}}</span>-->
+                <!--<span>#{{dataList.seqNo}}</span>-->
+            <!--</div>-->
+            <!--<div class="send-box">-->
+                <!--<span class="round">送</span>-->
+                <!--<span>{{dataList.userAddrDetail}}[{{dataList.userAddr}}]</span>-->
+            <!--</div>-->
+        <!--</div>-->
+    <!--</div>-->
+    <div class="refreData_box">
+        <a href="#" class="btn btn-default" onclick="refreshData()">刷新</a>
+    </div>
+</div>
+</body>
+</html>
+<script type="text/javascript">
+    function refreshData(){
+        window.location.reload();//页面刷新
+    }
+    function getQueryString(name) {
+        var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
+        var r = location.search.substr(1).match(reg);
+        if (r != null) return unescape(decodeURI(r[2]));
+        return null;
+    }
+    var app = new Vue({
+        el:".main",
+        data:{
+            dataList:"",
+        },
+        created:function () {
+            this.getData();
+        },
+        mounted:function () {
+
+        },
+        methods:{
+            getData:function() {
+                var _self = this;
+                var param  = {
+                    riderOrderId:(getQueryString("riderOrderId"))
+                };
+                CommonBase.request(getRiderOrderDetail_url,param,function (jsonstr) {
+                    if (jsonstr.resultCode == "0") {
+                        _self.dataList = jsonstr.detailMsg;
+                        // 百度地图API功能
+                        var map = new BMap.Map("l-map");
+                        map.enableScrollWheelZoom(true);
+                        var p1 = new BMap.Point(jsonstr.detailMsg.storeLon,jsonstr.detailMsg.storeLat);//起 ---商家配送坐标
+                        var p2 = new BMap.Point(jsonstr.detailMsg.userLon,jsonstr.detailMsg.userLat);//送 ---收货地址坐标
+                        var driving = new BMap.DrivingRoute(map, {renderOptions:{map: map, autoViewport: true}});
+                        driving.search(p1, p2);
+                    }
+                });
+            }
+        }
+    });
+</script>
